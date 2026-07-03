@@ -1,0 +1,30 @@
+{
+  "name": "cterest",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Collect and organise private/shared/public media",
+  "homepage": "https://github.com/clemeno/cterest#readme",
+  "bugs": {
+    "url": "https://github.com/clemeno/cterest/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://clemeno@github.com/clemeno/cterest.git"
+  },
+  "license": "MIT",
+  "author": "CLEm",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "cme-utils": "~5.6.4",
+    "eslint-utils": "~3.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "~1.3.14",
+    "eslint": "9.39.4",
+    "neostandard": "~0.13.0"
+  }
+}
