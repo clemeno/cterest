@@ -1,8 +1,11 @@
 # cterest — Design Plan
 
 Media registry: whitelisted Google-authenticated users upload files (drag-drop
-or file picker), bytes + metadata are stored server-side, and a list view shows
-all registered media with per-row preview, open, and download.
+or file picker); bytes + metadata are stored server-side. After sign-in the user
+lands on their **own uploads** (paginated, newest first). Media are organised into
+**folders** with per-folder visibility — private (owner only), protected (unlisted,
+shareable to members by link), or public (readable by anyone, no login) — each row
+offering preview, open, and download.
 
 Status: **planning / proof-of-concept**. This document is the reference to build
 against. No application code has been written yet.
@@ -23,7 +26,9 @@ against. No application code has been written yet.
 | Dedup | Content-addressable: `blobs` (sha256) + `media`, refcount GC |
 | Auth | **Better Auth**: Google ID-token sign-in → DB session + signed cookie cache (`SameSite=Lax`) |
 | Whitelist | Env var, comma-separated allowed emails; sole account-creation gate via Better Auth `user.create.before` hook |
-| Authz | Shared read/list (all whitelisted users see all media); **owner-only delete** (`media.uploaderEmail`) |
+| Main view | After sign-in: user's **own uploads**, newest first, paginated (default 10/page; selector 10/20/50/100/200) |
+| Folders | Playlist-style reference lists; media↔folder **many-to-many** (a link, never a byte copy); a folder references only its owner's media |
+| Authz | **Folder-scoped**, all via a direct `slug` link (unlisted): private (owner only) / protected (any **whitelisted member** with the link) / public (**anyone incl. anonymous**, no login) — cross-user access is **read-only**. Writes/delete **owner-only**. Bare media id is owner-only; cross-user reads go through a folder |
 | Raw serving | Same-origin, sandboxed: `CSP: sandbox` + `nosniff`; svg/text/html forced to attachment; inline preview raster-image allowlist only |
 | Limits | Per-user + global storage quota, upload rate limit, concurrent-upload cap |
 | Media types | image / video / audio / text — client MIME check + server magic-number validation |
@@ -137,6 +142,10 @@ session  → Better Auth returns current user/session from cookie cache or DB
   Better Auth's own CSRF check stays enabled for state-changing routes. `Strict`
   is avoided — it would break external links into `/raw`.
 - Non-auth endpoints guard by resolving the session via Better Auth.
+- **Session required** for own routes, all writes, and protected/private folder
+  reads. **Public-folder reads are unauthenticated** — those routes resolve the
+  session if a cookie is present but do not require one, so anonymous visitors
+  can read public folders (§7, §11 anonymous surface).
 - **Revocation supported**: delete the session row (kills the session before
   expiry; cookie cache TTL bounds the staleness window).
 - Requires HTTPS in production (Secure cookie).
@@ -191,7 +200,37 @@ uploadedAt    TEXT    NOT NULL         -- indexed for list ordering
 ```
 
 UUIDv7 primary keys are time-ordered → good index locality and natural
-sort-by-creation.
+sort-by-creation (used for newest-first ordering of the main view, §7).
+
+**`folders`** — playlist-style reference lists (no byte copy)
+```
+id           TEXT PRIMARY KEY      -- uuidv7 (internal id; owner-only routes)
+slug         TEXT NOT NULL UNIQUE  -- 128-bit random base64url; the shareable/capability URL segment
+ownerEmail   TEXT NOT NULL         -- FK → user.email
+name         TEXT NOT NULL
+visibility   TEXT NOT NULL         -- private | protected | public
+createdAt    TEXT NOT NULL
+```
+The external URL uses `slug`, **not** `id`: uuidv7 is time-sortable and
+enumerable, unfit for a shareable link — `slug` is unguessable random. Public and
+protected folders are both reached by their **direct `slug` link** (unlisted, not
+enumerable); the only difference is the auth gate — **public** allows **anyone
+incl. anonymous** (read-only), **protected** requires an **authenticated
+whitelisted member** (read-only). Private is owner-only.
+
+**`mediaFolder`** — the many-to-many links (a media referenced in N folders)
+```
+folderId  TEXT NOT NULL  -- FK → folders.id
+mediaId   TEXT NOT NULL  -- FK → media.id
+addedAt   TEXT NOT NULL
+PRIMARY KEY (folderId, mediaId)   -- a media appears at most once per folder
+```
+A folder references **only its owner's media** (`folders.ownerEmail ==
+media.uploaderEmail`, enforced on link). Referencing/dereferencing is a link
+insert/delete — the blob and the `media` row are untouched, so the same file
+lives in many folders with zero duplication. Deleting a `media` row cascades its
+`mediaFolder` links (and decrements the blob, §6.6); deleting a `folder` removes
+only that folder's links (the media persist, still owned + still in other folders).
 
 **`uploadBucket`** — per-user upload token bucket (§11), app-owned (kept off the
 Better Auth `user` table, whose schema is regenerated)
@@ -244,6 +283,7 @@ POST /api/media?filename=<name>&type=<mime>      (cookie-authed)
    - **hit** → `refCount++`; delete the temp file (duplicate bytes).
    - **miss** → move temp → `<UPLOAD_DIR>/<sha[0:2]>/<sha>` (mkdir shard dir if absent), insert blob with `refCount = 1`.
    - insert the `media` row (uuidv7, `uploaderEmail` = session email) referencing the blob. Client-supplied `width`/`height`/`durationMs` are **clamped to sane ranges** (untrusted display metadata), non-conforming → dropped to null.
+   - if `?folderId` was supplied **and** that folder is the caller's own, insert a `mediaFolder` link in the **same transaction** (else ignore — a folder references only its owner's media, §5).
 5. Commit → return metadata.
 6. **Delete media** (owner-only, §7): in a transaction, delete the row and `refCount--`; if it hits 0, mark for GC and delete the blob **file only after the transaction commits** (never inside, so a concurrent `refCount++` that commits first keeps the file). Re-check `refCount` is still 0 before unlinking.
 7. **Orphan-blob sweep** (startup + periodic): a crash between the §6.6 commit and
@@ -267,23 +307,56 @@ manually.
 ## 7. Media endpoints
 
 Auth routes (`/api/auth/*`) are handled entirely by Better Auth via
-`app.mount(auth.handler)` — not listed individually here. Every `:id` path param
-is schema-validated as a uuidv7 (Elysia TypeBox) → `400` on malformed input,
-before any DB lookup.
+`app.mount(auth.handler)` — not listed individually here. Every `:id`/`:mediaId`
+path param is schema-validated as a uuidv7, and `:slug` as the random folder-token
+charset (Elysia TypeBox) → `400` on malformed input, before any DB lookup.
 
+Access is always evaluated **server-side**; the client never asserts what it may
+read. Two families:
+
+**Owner routes** — cookie session required, scoped to the caller's own data.
+`GET /api/media` is the main view: it returns **only the caller's own uploads**,
+never anyone else's, so the bare media id is never an oracle for other users.
 ```
-POST /api/media            (guard) raw-body streaming upload → validate → store
-GET  /api/media            (guard) list metadata (no bytes); newest first
-GET  /api/media/:id/raw    (guard, cookie) stream bytes via Elysia file()
-                           (range requests); sandboxed headers (below);
-                           ?download OR non-previewable → attachment
-DELETE /api/media/:id       (guard, OWNER-ONLY) 403 unless media.uploaderEmail
-                            === session email; then remove row + GC blob (§6.6)
+POST   /api/media[?folderId=…]   raw-body streaming upload → validate → store;
+                                 optional folderId also links it (owner's folder)
+GET    /api/media?limit=&cursor= list caller's OWN uploads, newest first, paginated
+                                 (limit ∈ {10,20,50,100,200} default 10, else 400)
+GET    /api/media/:id/raw        OWNER-ONLY raw bytes (your own file)
+DELETE /api/media/:id            OWNER-ONLY 403 unless media.uploaderEmail ===
+                                 session email; remove row + cascade links + GC (§6.6)
+
+POST   /api/folders              create { name, visibility } → server-assigned slug
+GET    /api/folders              list caller's own folders (+ visibility, slug)
+PATCH  /api/folders/:id          OWNER-ONLY rename / change visibility
+DELETE /api/folders/:id          OWNER-ONLY delete folder (unlinks media, keeps them)
+POST   /api/folders/:id/media    OWNER-ONLY link a media (must be caller's own)
+DELETE /api/folders/:id/media/:mediaId  OWNER-ONLY unlink (dereference)
 ```
 
-Serving `/raw`: media → blob.storagePath → Elysia `file()` (streaming + range
-requests). Every `/raw` response is **sandboxed** to neutralise stored-XSS from
-user bytes served on the app origin (see §11 C1):
+**Folder-scoped read routes** — the only cross-user read path; the folder gate
+(below) decides, session **optional**. Addressed by `slug` (the capability), not
+the internal id.
+```
+GET  /api/f/:slug                     folder meta (gate applies)
+GET  /api/f/:slug/media?limit=&cursor= media referenced in the folder, paginated
+GET  /api/f/:slug/media/:mediaId/raw   stream bytes (gate applies; sandboxed below)
+```
+**Folder gate** (per request, on the folder's `visibility`):
+- `public` → allow **anyone**, incl. anonymous (no session). Read-only.
+- `protected` → allow any **authenticated whitelisted member** — the unguessable
+  `slug` is how they reached it; the folder is unlisted. Read-only.
+- `private` → allow **owner only** (else 404, not 403 — do not confirm existence).
+
+A cross-user reader can only ever reach a media **through a folder they may read**;
+there is no route that streams another user's media by bare id. Protected content
+therefore stays behind its slug (a member enumerating media ids hits owner-only
+`/api/media/:id/raw` and gets nothing that is not theirs).
+
+Serving `/raw` (both `GET /api/media/:id/raw` and `GET /api/f/:slug/media/:mediaId/raw`):
+media → blob.storagePath → Elysia `file()` (streaming + range requests). Every
+`/raw` response is **sandboxed** to neutralise stored-XSS from user bytes served
+on the app origin (see §11 C1):
 
 - `X-Content-Type-Options: nosniff` — browser must honour our declared type.
 - `Content-Security-Policy: sandbox; default-src 'none'` — any HTML/SVG opened
@@ -300,18 +373,29 @@ user bytes served on the app origin (see §11 C1):
 
 - Google Identity Services sign-in button → Better Auth client `signIn.social({ provider: 'google', idToken })`.
 - Upload form: drag-drop zone + file picker (`<input type="file" multiple>`, optional `webkitdirectory` for folder pick). Client-side MIME pre-check. Reads image dimensions / media duration client-side for metadata.
-- Media list: Material table of metadata rows. All stored fields (filename, etc.)
-  render via Angular's default interpolation — **never** `[innerHTML]` or
-  `bypassSecurityTrust*` (would reintroduce XSS from stored metadata).
+- **Main page** (post-login landing, guarded route): the caller's **own uploads**,
+  a Material table newest-first, `mat-paginator` with `pageSize = 10` and
+  `pageSizeOptions = [10, 20, 50, 100, 200]` bound to the `GET /api/media?limit=&cursor=`
+  params. All stored fields (filename, etc.) render via Angular's default
+  interpolation — **never** `[innerHTML]` or `bypassSecurityTrust*` (would
+  reintroduce XSS from stored metadata).
   - Preview only for `previewable` rows (raster allowlist from §6): hover → lazy `<img loading="lazy" src="/api/media/:id/raw">`. SVG and everything else get a type icon, no inline render.
-  - Every row: "open" button (`<a target="_blank" rel="noopener" href=".../raw">`) and "download" button (`<a href=".../raw?download" download>`). Cookie auth means the anchors just work; the `/raw` sandbox headers (§7) contain anything opened in a new tab.
+  - Every row: "open" (`<a target="_blank" rel="noopener" href=".../raw">`) and "download" (`<a href=".../raw?download" download>`). Cookie auth means the anchors just work; the `/raw` sandbox headers (§7) contain anything opened in a new tab.
+- **Folders page** (guarded): manage the caller's folders — create, rename, set
+  visibility (private / protected / public), and **reference / dereference** own
+  media (add/remove links, playlist-style; the file is never copied). For
+  protected/public folders, surface a "copy share link" using the folder `slug`
+  (`/f/:slug`). A folder's media list reuses the same paginated table + preview.
+- **Public folder view** (`/f/:slug`, **unguarded** Angular route): renders a
+  read-only folder for anonymous or member visitors via the folder-scoped read
+  API (§7). Protected slugs additionally require a signed-in member (the API gate
+  enforces it; the UI prompts sign-in on `401`).
 - Build: `ng build` → static `apps/web/dist/browser/`, served in prod by the API via `@elysiajs/static` (single origin → no CORS). The API consumes only this **built artifact**, never the Angular source (see §9).
 
 Note on "local disk search": a browser cannot scan the filesystem. "Search local
 disk" means the OS file-open dialog / drag-drop of user-selected files.
 
-Deferred: thumbnails / previews for video/audio/text (type icon for now);
-pagination (list returns all rows for POC).
+Deferred: thumbnails / previews for video/audio/text (type icon for now).
 
 ---
 
@@ -361,6 +445,7 @@ SPA from one origin.
 | `MAX_CONCURRENT_UPLOADS` | in-flight uploads per user |
 | `UPLOAD_BUCKET_CAPACITY` | token-bucket size = max upload burst per user (default 25) |
 | `UPLOAD_BUCKET_REFILL_WINDOW` | time to refill the bucket to full (default 5h) |
+| `PUBLIC_READ_RATE_LIMIT` | per-IP request cap for unauthenticated public-folder reads (§11 H4) |
 | `PORT` | API port |
 
 Requires HTTPS in production (Secure cookie + Google auth + HSTS, see §11).
@@ -387,8 +472,34 @@ upgrade path = move `/raw` to a cookieless subdomain if stronger isolation is ne
 - Google ID token verified fully (signature, `aud`=`GOOGLE_CLIENT_ID`, `iss`, `exp`) by Better Auth (§4).
 - Sessions DB-backed + revocable; cookie `httpOnly; Secure; SameSite=Lax`.
 
-**Authorization (H2)** — read/list is shared across whitelisted users by design;
-**delete is owner-only** (`media.uploaderEmail === session email`, else 403, §7).
+**Authorization (H2)** — **folder-scoped**, evaluated server-side every request
+(§7); the client never asserts what it may read.
+- Main view + bare `/api/media/:id/raw` are **owner-only** — a user sees and
+  streams only their own uploads by id; no bare-id oracle for other users' media.
+- All **writes** (upload, delete, folder create/rename/visibility, link/unlink)
+  are **owner-only**; a folder may reference only its owner's media.
+- **Cross-user reads go only through a folder** (`/api/f/:slug/…`) and pass the
+  gate: public → anyone incl. anonymous; protected → any whitelisted member with
+  the slug; private → owner only. Private/unknown → `404` (no existence oracle).
+- **IDOR defence**: because protected content is reachable *only* via its slug and
+  never via bare media id, a member cannot enumerate media ids to reach another
+  user's protected/private content.
+
+**Anonymous read surface (new, H4)** — public folders + their media/`raw` are
+served **without a session**, a deliberate new attack surface:
+- Enforced entirely server-side: only media reachable via a `public` folder is
+  exposed to anonymous callers; the gate is never client-trusted.
+- **IP rate-limit** the unauthenticated read routes (`/api/f/:slug/*`) — the
+  per-user upload token bucket (§5) does not apply to anonymous readers.
+- `/raw` sandbox headers (`nosniff`, `CSP: sandbox`, server-sniffed type,
+  attachment for non-raster) apply here too — *more* important with no auth.
+- **Capability entropy**: the folder `slug` is a 128-bit random token, **not** the
+  uuidv7 id (uuidv7 is time-sortable → enumerable). Public and protected are both
+  reached by direct `slug` link and are **unlisted** (not enumerable); the only
+  difference is the auth gate — anonymous allowed (public) vs member-required
+  (protected).
+- No user context on these routes → no per-user data leaks; responses expose only
+  the public folder's media metadata + bytes.
 
 **Abuse / DoS (H3)** — layered, all env-configured (§10) and checked before the
 body is read (§6 step 0):
@@ -407,7 +518,9 @@ body is read (§6 step 0):
   request start and **`finally`-decremented** so aborts/errors free the slot. Not
   persisted — a crash resets it (acceptable; in-flight requests die with the
   process). Multi-process would need the shared store (§12).
-- `GET /api/media` gains pagination before the list can grow unbounded (§12).
+- **Pagination is mandatory** on every list route (`/api/media`, `/api/f/:slug/media`):
+  server-enforced `limit ∈ {10,20,50,100,200}` (default 10) + offset/cursor, so no
+  response can return an unbounded row set (§7, §8).
 
 **Integrity** — refcount dedup + GC run in DB transactions; blob files unlinked
 only post-commit with a re-checked `refCount = 0` (§6, M2). Temp files randomly
@@ -442,9 +555,10 @@ startup. Dependency audit (`bun audit` / `npm audit`) runs in CI. **Accepted ris
 Hardening recommends committing the lockfile; left as-is by choice for the POC.
 
 **Out of scope / accepted risk** — a whitelisted user is trusted for *content*:
-they may upload lawful-but-useless files within their quota, and any whitelisted
-user may read/preview/download any media (shared registry by design). Malicious
-*content* moderation, virus scanning, and per-file ACLs are not in the POC.
+they may upload lawful-but-useless files within their quota, and may expose their
+own media to other members or the open internet by putting it in a protected/public
+folder (their choice). Access itself is folder-scoped (H2), not a free-for-all.
+Malicious *content* moderation and virus scanning are not in the POC.
 
 ---
 
@@ -452,7 +566,11 @@ user may read/preview/download any media (shared registry by design). Malicious
 
 - **Postgres**: swap Drizzle driver; schema portable; only paths in DB.
 - **Distributed rate limiting**: `uploadBucket` lives in SQLite — fine for the POC and even multi-process on one host (WAL + `busy_timeout`). Only a **multi-host** deployment needs a shared store (Redis atomic `INCR`/Lua, or the Postgres row once migrated).
-- **Pagination**: add `LIMIT/OFFSET` (or keyset on uuidv7) when the list grows.
+- **Pagination**: core now (`LIMIT/OFFSET` for `mat-paginator`, §7/§8). Deferred =
+  **keyset on uuidv7** if deep offsets get slow, and a total-count strategy.
+- **Nested / hierarchical folders**, folder-level storage quotas, and sharing a
+  folder to a *specific* member list (current model is anonymous / any-member /
+  owner). Per-media ACL is now subsumed by folder visibility.
 - **Thumbnails**: generate on upload or on demand if full-res previews lag.
 - **Dedup collision defense**: byte-compare on sha256 match.
 - **Multi-file streaming multipart**: current design uploads one file per request.
