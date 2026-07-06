@@ -1,6 +1,7 @@
+// import tsEslintPlugin from '@typescript-eslint/eslint-plugin'
 import tsEslintParser from '@typescript-eslint/parser'
-import neostandard, { resolveIgnoresFromGitignore } from 'neostandard'
 import { MAX_RETURN_STATEMENTS_PER_FUNCTION_PLUGIN } from 'cme-utils/esm/max-return-statements-per-function.plugin.js'
+import neostandard, { resolveIgnoresFromGitignore } from 'neostandard'
 
 const tsRules = {
   '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'separate-type-imports' }],
@@ -21,9 +22,6 @@ const tsRules = {
 }
 
 const optionList = [
-  // apps/* are separate workspaces owning their own build/test/lint (PLAN §9):
-  // the Angular app + Elysia mock use their own toolchains, not root neostandard.
-  { ignores: ['apps/**'] },
   ...neostandard({
     ignores: resolveIgnoresFromGitignore(),
     ts: true,
@@ -52,7 +50,6 @@ const optionList = [
       ],
       yoda: 0,
       'max-params': ['warn', 1],
-      '@stylistic/indent': ['error', 2],
       '@stylistic/arrow-parens': ['error', 'as-needed'],
       '@stylistic/comma-dangle': [
         'warn',
@@ -74,21 +71,13 @@ const optionList = [
   },
   {
     files: ['**/*.ts', '**/*.tsx'],
-    ignores: ['tests/**/*'],
+    // plugins: {
+    //   '@typescript-eslint': tsEslintPlugin,
+    // },
     languageOptions: {
       parser: tsEslintParser,
       parserOptions: {
         project: './tsconfig.json',
-      },
-    },
-    rules: tsRules,
-  },
-  {
-    files: ['tests/**/*.ts', 'tests/**/*.tsx'],
-    languageOptions: {
-      parser: tsEslintParser,
-      parserOptions: {
-        project: './tsconfig.tests.json',
       },
     },
     rules: tsRules,

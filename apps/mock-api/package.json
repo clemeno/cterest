@@ -1,0 +1,24 @@
+{
+  "name": "mock-api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "start": "bun run src/index.ts",
+    "lint": "eslint \"src/**/*.ts\" --fix",
+    "typecheck": "bun ../../node_modules/typescript/bin/tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@elysiajs/cors": "~1.4.2",
+    "cme-utils": "~5.6.4",
+    "elysia": "~1.4.29",
+    "eslint-utils": "~3.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "~1.3.14",
+    "eslint": "9.39.4",
+    "neostandard": "~0.13.0"
+  }
+}

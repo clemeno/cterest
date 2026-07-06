@@ -1,0 +1,34 @@
+.create {
+	margin-bottom: 24px;
+}
+
+.create-row {
+	display: flex;
+	gap: 12px;
+	align-items: baseline;
+	flex-wrap: wrap;
+}
+
+.grow {
+	flex: 1;
+	min-width: 220px;
+}
+
+.grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+	gap: 16px;
+}
+
+.vis {
+	width: 160px;
+}
+
+.rename {
+	font: inherit;
+	width: 100%;
+}
+
+.empty {
+	opacity: 0.6;
+}

@@ -7,8 +7,10 @@ lands on their **own uploads** (paginated, newest first). Media are organised in
 shareable to members by link), or public (readable by anyone, no login) — each row
 offering preview, open, and download.
 
-Status: **planning / proof-of-concept**. This document is the reference to build
-against. No application code has been written yet.
+Status: **proof-of-concept in progress**. This document is the reference to build
+against. Built so far: `apps/mock-api` (in-memory mock of the §7 contract) and
+`apps/web` (Angular client). Not yet built: `apps/api` (the real ElysiaJS +
+Drizzle + Better Auth + upload backend).
 
 ---
 
@@ -31,7 +33,7 @@ against. No application code has been written yet.
 | Authz | **Folder-scoped**, all via a direct `slug` link (unlisted): private (owner only) / protected (any **whitelisted member** with the link) / public (**anyone incl. anonymous**, no login) — cross-user access is **read-only**. Writes/delete **owner-only**. Bare media id is owner-only; cross-user reads go through a folder |
 | Raw serving | Same-origin, sandboxed: `CSP: sandbox` + `nosniff`; svg/text/html forced to attachment; inline preview raster-image allowlist only |
 | Limits | Per-user + global storage quota, upload rate limit, concurrent-upload cap |
-| Media types | image / video / audio / text — client MIME check + server magic-number validation |
+| Media types | image / video / audio / text / document (office: docx/xlsx/pptx; code: html/css/scss/js/ts/json/md) — client MIME pre-check + server magic-number validation; active subtypes (html/svg/js/ts) accepted but served **attachment-only**, never inline |
 | Max upload | 1 GB, streamed to disk (never fully buffered in memory) |
 | Frontend | Angular (latest) + Angular Material, Material 3 theme |
 
@@ -191,7 +193,7 @@ id            TEXT    PRIMARY KEY      -- uuidv7
 blobSha256    TEXT    NOT NULL         -- FK → blobs.sha256
 filename      TEXT    NOT NULL
 mime          TEXT    NOT NULL         -- validated server-side
-category      TEXT    NOT NULL         -- image | video | audio | text
+category      TEXT    NOT NULL         -- image | video | audio | text | document
 width         INTEGER                  -- images (client-read)
 height        INTEGER                  -- images (client-read)
 durationMs    INTEGER                  -- audio/video (client-read)
@@ -275,8 +277,8 @@ POST /api/media?filename=<name>&type=<mime>      (cookie-authed)
    is over their token bucket, concurrent-upload cap, or storage quota (§11). Cheap
    gates first.
 1. **Client**: detect MIME → reject non-whitelisted types immediately (fast UX) → stream file as raw body.
-2. **Server**: sniff the first ~4 KB → magic-number type detection → reject early (415) if the real category is not image/video/audio/text or mismatches the declared type — before writing 1 GB.
-   - `text/*` has no magic number → validate as UTF-8-decodable with no NUL/binary control bytes, and **reject active text subtypes** (`text/html`, `text/xml`, `image/svg+xml`, anything script-executable) unless they will only ever be served as attachments (§7). Store the sniffed subtype, not the client's claim.
+2. **Server**: sniff the first ~4 KB → magic-number type detection → reject early (415) if the real category is not image/video/audio/text/document or mismatches the declared type — before writing 1 GB. Office/code files without a reliable magic number fall back to an extension→MIME map (a known extension is authoritative).
+   - `text/*` has no magic number → validate as UTF-8-decodable with no NUL/binary control bytes. Active subtypes (`text/html`, `text/xml`, `image/svg+xml`, JS/TS, anything script-executable) are **accepted but served attachment-only, never inline** (§7) — the `/raw` sandbox + non-raster `attachment` disposition neutralises them. Store the sniffed subtype, not the client's claim.
    - Record a `previewable` flag = subtype ∈ raster allowlist (`png|jpeg|gif|webp|avif`); everything else is download-only.
 3. Ensure `UPLOAD_DIR` exists (mkdir-recursive if absent — first upload creates it), then stream the rest → a **randomly-named temp file** (`<UPLOAD_DIR>/tmp/<random>`), feeding bytes through a streaming sha256 (`node:crypto`, both runtimes), with backpressure. Enforce the 1 GB cap (abort on exceed). A `try/finally` **always deletes the temp file** on any error, abort, or cap-exceed; a startup sweep removes stale temps left by crashes.
 4. On completion (`size` + `sha256` known), in a **single DB transaction** (dedup + refcount must be atomic — else concurrent same-bytes uploads or a racing delete double-store, orphan, or GC a live blob):
@@ -320,7 +322,7 @@ never anyone else's, so the bare media id is never an oracle for other users.
 ```
 POST   /api/media[?folderId=…]   raw-body streaming upload → validate → store;
                                  optional folderId also links it (owner's folder)
-GET    /api/media?limit=&cursor= list caller's OWN uploads, newest first, paginated
+GET    /api/media?limit=&offset= list caller's OWN uploads, newest first, paginated
                                  (limit ∈ {10,20,50,100,200} default 10, else 400)
 GET    /api/media/:id/raw        OWNER-ONLY raw bytes (your own file)
 DELETE /api/media/:id            OWNER-ONLY 403 unless media.uploaderEmail ===
@@ -339,7 +341,7 @@ DELETE /api/folders/:id/media/:mediaId  OWNER-ONLY unlink (dereference)
 the internal id.
 ```
 GET  /api/f/:slug                     folder meta (gate applies)
-GET  /api/f/:slug/media?limit=&cursor= media referenced in the folder, paginated
+GET  /api/f/:slug/media?limit=&offset= media referenced in the folder, paginated
 GET  /api/f/:slug/media/:mediaId/raw   stream bytes (gate applies; sandboxed below)
 ```
 **Folder gate** (per request, on the folder's `visibility`):
@@ -375,7 +377,7 @@ on the app origin (see §11 C1):
 - Upload form: drag-drop zone + file picker (`<input type="file" multiple>`, optional `webkitdirectory` for folder pick). Client-side MIME pre-check. Reads image dimensions / media duration client-side for metadata.
 - **Main page** (post-login landing, guarded route): the caller's **own uploads**,
   a Material table newest-first, `mat-paginator` with `pageSize = 10` and
-  `pageSizeOptions = [10, 20, 50, 100, 200]` bound to the `GET /api/media?limit=&cursor=`
+  `pageSizeOptions = [10, 20, 50, 100, 200]` bound to the `GET /api/media?limit=&offset=`
   params. All stored fields (filename, etc.) render via Angular's default
   interpolation — **never** `[innerHTML]` or `bypassSecurityTrust*` (would
   reintroduce XSS from stored metadata).
@@ -395,7 +397,7 @@ on the app origin (see §11 C1):
 Note on "local disk search": a browser cannot scan the filesystem. "Search local
 disk" means the OS file-open dialog / drag-drop of user-selected files.
 
-Deferred: thumbnails / previews for video/audio/text (type icon for now).
+Deferred: thumbnails / previews for video/audio/text/document (type icon for now).
 
 ---
 
@@ -404,13 +406,28 @@ Deferred: thumbnails / previews for video/audio/text (type icon for now).
 ```
 cterest/
 ├── apps/
-│   ├── api/          ElysiaJS + Drizzle + auth + upload (also serves web's build)
+│   ├── api/          ElysiaJS + Drizzle + auth + upload (also serves web's build) — not yet built
 │   │   └── uploads/  blob storage (gitignored; created on first upload)
+│   ├── mock-api/     Elysia in-memory mock of /api/* — lets the web client be
+│   │                 developed/tested with no DB, Google auth, or file storage
 │   └── web/          Angular + Material M3 → static build
 │       └── dist/browser/   ng build output (gitignored); API's static root in prod
 ├── PLAN.md
 └── package.json      Bun workspaces root
 ```
+
+**Local development (web client vs. mock API).** The web client is built and
+tested independently of the real `api` against `mock-api`, an Elysia server that
+holds the whole dataset in memory and reproduces the §7 contract (auth session,
+own-uploads pagination, folder CRUD + link/unlink, slug-scoped public reads with
+the visibility gate). Two processes: `bun run mock` (Elysia on `:3001`, seeded)
+and `bun run web` (`ng serve` on `:4200`), or `bun run dev` for both. Angular's
+`proxy.conf.json` forwards `/api` → `:3001` so the browser sees one origin and the
+session cookie flows. Mock deviations from the real API are flagged with
+`ponytail:`/comment: sign-in is a whitelist pick (not the Better Auth Google
+flow), uploads fabricate a media row (bytes discarded), and `/raw` returns an SVG
+placeholder served inline so previews render. The real `api` implements the same
+routes, so the client's services/components move over unchanged.
 
 **`api` and `web` stay separate sibling workspaces — not nested, not renamed:**
 - The API serving Angular in prod is **artifact consumption, not source nesting**.

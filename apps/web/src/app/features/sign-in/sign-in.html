@@ -1,0 +1,34 @@
+<div class="page sign-in">
+	<mat-card>
+		<mat-card-header>
+			<mat-card-title>Sign in to cterest</mat-card-title>
+			<mat-card-subtitle>Whitelisted Google accounts only (mocked here).</mat-card-subtitle>
+		</mat-card-header>
+
+		<mat-card-content>
+			@if (demoUsers().length) {
+				<p class="hint">Demo accounts:</p>
+				<div class="demo-list">
+					@for (u of demoUsers(); track u.email) {
+						<button mat-stroked-button (click)="signIn(u.email)">
+							<mat-icon>person</mat-icon>
+							{{ u.name }} — {{ u.email }}
+						</button>
+					}
+				</div>
+			}
+
+			<form (ngSubmit)="signIn(email())" class="manual">
+				<mat-form-field appearance="outline" class="full">
+					<mat-label>Email</mat-label>
+					<input matInput type="email" [ngModel]="email()" (ngModelChange)="email.set($event)" name="email" placeholder="you@example.com" />
+				</mat-form-field>
+				<button mat-flat-button color="primary" type="submit" [disabled]="!email()">Sign in</button>
+			</form>
+
+			@if (error()) {
+				<p class="error">{{ error() }}</p>
+			}
+		</mat-card-content>
+	</mat-card>
+</div>

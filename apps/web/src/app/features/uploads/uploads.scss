@@ -1,0 +1,22 @@
+.dropzone {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	padding: 32px;
+	margin-bottom: 16px;
+	border: 2px dashed var(--mat-sys-outline);
+	border-radius: 12px;
+	color: var(--mat-sys-on-surface-variant);
+	transition: background 0.15s ease;
+}
+
+.dropzone.dragging {
+	background: var(--mat-sys-surface-variant);
+	border-color: var(--mat-sys-primary);
+}
+
+.dropzone mat-icon {
+	transform: scale(1.6);
+	opacity: 0.6;
+}

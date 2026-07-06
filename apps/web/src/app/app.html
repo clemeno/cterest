@@ -1,0 +1,28 @@
+<mat-toolbar color="primary">
+	<a routerLink="/" class="brand">cterest</a>
+
+	@if (user()) {
+		<nav>
+			<a mat-button routerLink="/uploads" routerLinkActive="active">My uploads</a>
+			<a mat-button routerLink="/folders" routerLinkActive="active">Folders</a>
+		</nav>
+	}
+
+	<span class="spacer"></span>
+
+	@if (user(); as u) {
+		<button mat-button [matMenuTriggerFor]="menu">
+			<mat-icon>account_circle</mat-icon>
+			{{ u.name }}
+		</button>
+		<mat-menu #menu="matMenu">
+			<div class="menu-email">{{ u.email }}</div>
+			<button mat-menu-item (click)="signOut()">
+				<mat-icon>logout</mat-icon>
+				Sign out
+			</button>
+		</mat-menu>
+	}
+</mat-toolbar>
+
+<router-outlet></router-outlet>

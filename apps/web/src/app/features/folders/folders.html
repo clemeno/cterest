@@ -1,0 +1,83 @@
+<div class="page">
+	<h1>Folders</h1>
+
+	<mat-card class="create">
+		<mat-card-content class="create-row">
+			<mat-form-field appearance="outline" class="grow">
+				<mat-label>New folder name</mat-label>
+				<input matInput [ngModel]="newName()" (ngModelChange)="newName.set($event)" name="newName" />
+			</mat-form-field>
+
+			<mat-form-field appearance="outline">
+				<mat-label>Visibility</mat-label>
+				<mat-select [ngModel]="newVisibility()" (ngModelChange)="newVisibility.set($event)" name="newVis">
+					@for (v of visibilityOptions; track v) {
+						<mat-option [value]="v">{{ v }}</mat-option>
+					}
+				</mat-select>
+			</mat-form-field>
+
+			<button mat-flat-button color="primary" (click)="create()" [disabled]="!newName().trim()">
+				<mat-icon>create_new_folder</mat-icon>
+				Create
+			</button>
+		</mat-card-content>
+	</mat-card>
+
+	@if (list().length === 0) {
+		<p class="empty">No folders yet.</p>
+	}
+
+	<div class="grid">
+		@for (folder of list(); track folder.id) {
+			<mat-card>
+				<mat-card-header>
+					<mat-card-title>
+						@if (editingId() === folder.id) {
+							<input
+								class="rename"
+								[ngModel]="draftName()"
+								(ngModelChange)="draftName.set($event)"
+								(keyup.enter)="saveName(folder)"
+								(blur)="saveName(folder)"
+							/>
+						} @else {
+							<span (dblclick)="startEdit(folder)">{{ folder.name }}</span>
+						}
+					</mat-card-title>
+					<mat-card-subtitle>{{ folder.mediaCount }} item(s)</mat-card-subtitle>
+				</mat-card-header>
+
+				<mat-card-content>
+					<mat-form-field appearance="outline" class="vis">
+						<mat-label>Visibility</mat-label>
+						<mat-select [ngModel]="folder.visibility" (ngModelChange)="changeVisibility({ folder, visibility: $event })" [name]="'vis-' + folder.id">
+							@for (v of visibilityOptions; track v) {
+								<mat-option [value]="v">{{ v }}</mat-option>
+							}
+						</mat-select>
+					</mat-form-field>
+				</mat-card-content>
+
+				<mat-card-actions>
+					<a mat-button [routerLink]="['/folders', folder.id]">
+						<mat-icon>folder_open</mat-icon>
+						Open
+					</a>
+					<button mat-button (click)="startEdit(folder)">
+						<mat-icon>edit</mat-icon>
+						Rename
+					</button>
+					<button mat-button (click)="copyLink(folder)" [disabled]="folder.visibility === 'private'">
+						<mat-icon>link</mat-icon>
+						Share
+					</button>
+					<button mat-button color="warn" (click)="remove(folder)">
+						<mat-icon>delete</mat-icon>
+						Delete
+					</button>
+				</mat-card-actions>
+			</mat-card>
+		}
+	</div>
+</div>

@@ -1,0 +1,21 @@
+table {
+	width: 100%;
+}
+
+.thumb {
+	width: 56px;
+	height: 36px;
+	object-fit: cover;
+	border-radius: 4px;
+	display: block;
+}
+
+.thumb-icon {
+	opacity: 0.6;
+}
+
+.empty {
+	padding: 32px;
+	text-align: center;
+	opacity: 0.6;
+}

@@ -1,0 +1,90 @@
+@if (items().length === 0) {
+	<p class="empty">No media here yet.</p>
+} @else {
+	<table mat-table [dataSource]="items()" class="mat-elevation-z1">
+		<ng-container matColumnDef="preview">
+			<th mat-header-cell *matHeaderCellDef></th>
+			<td mat-cell *matCellDef="let row">
+				@if (row.previewable) {
+					<img class="thumb" [src]="rawUrl()({ media: row, download: false })" [alt]="row.filename" loading="lazy" />
+				} @else {
+					<mat-icon class="thumb-icon">{{ iconFor(row) }}</mat-icon>
+				}
+			</td>
+		</ng-container>
+
+		<ng-container matColumnDef="filename">
+			<th mat-header-cell *matHeaderCellDef>File</th>
+			<td mat-cell *matCellDef="let row">{{ row.filename }}</td>
+		</ng-container>
+
+		<ng-container matColumnDef="category">
+			<th mat-header-cell *matHeaderCellDef>Type</th>
+			<td mat-cell *matCellDef="let row">{{ row.category }}</td>
+		</ng-container>
+
+		<ng-container matColumnDef="size">
+			<th mat-header-cell *matHeaderCellDef>Size</th>
+			<td mat-cell *matCellDef="let row">{{ formatSize(row.size) }}</td>
+		</ng-container>
+
+		<ng-container matColumnDef="uploaded">
+			<th mat-header-cell *matHeaderCellDef>Uploaded</th>
+			<td mat-cell *matCellDef="let row">{{ row.uploadedAt | date: 'short' }}</td>
+		</ng-container>
+
+		<ng-container matColumnDef="actions">
+			<th mat-header-cell *matHeaderCellDef></th>
+			<td mat-cell *matCellDef="let row">
+				<div class="row-actions">
+					<a
+						mat-icon-button
+						[href]="rawUrl()({ media: row, download: false })"
+						target="_blank"
+						rel="noopener"
+						matTooltip="Open"
+						aria-label="Open"
+					>
+						<mat-icon>open_in_new</mat-icon>
+					</a>
+					<a
+						mat-icon-button
+						[href]="rawUrl()({ media: row, download: true })"
+						download
+						matTooltip="Download"
+						aria-label="Download"
+					>
+						<mat-icon>download</mat-icon>
+					</a>
+					@if (showAdd()) {
+						<button mat-icon-button (click)="added.emit(row)" aria-label="Add to folder">
+							<mat-icon>playlist_add</mat-icon>
+						</button>
+					}
+					@if (showRemove()) {
+						<button mat-icon-button (click)="removed.emit(row)" aria-label="Remove from folder">
+							<mat-icon>playlist_remove</mat-icon>
+						</button>
+					}
+					@if (showDelete()) {
+						<button mat-icon-button color="warn" (click)="deleted.emit(row)" aria-label="Delete">
+							<mat-icon>delete</mat-icon>
+						</button>
+					}
+				</div>
+			</td>
+		</ng-container>
+
+		<tr mat-header-row *matHeaderRowDef="columns"></tr>
+		<tr mat-row *matRowDef="let row; columns: columns"></tr>
+	</table>
+}
+
+<mat-paginator
+	[length]="total()"
+	[pageSize]="pageSize()"
+	[pageIndex]="pageIndex()"
+	[pageSizeOptions]="pageSizeOptions"
+	(page)="pageChange.emit($event)"
+>
+</mat-paginator>

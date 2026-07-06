@@ -1,0 +1,22 @@
+.header {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 16px;
+}
+
+.header h1 {
+	margin: 0;
+}
+
+.denied {
+	text-align: center;
+	padding: 64px 16px;
+	opacity: 0.8;
+}
+
+.denied mat-icon {
+	transform: scale(2);
+	margin-bottom: 24px;
+	opacity: 0.5;
+}
