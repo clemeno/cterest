@@ -1,13 +1,17 @@
 {
+  "extends": "@tsconfig/bun/tsconfig.json",
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "types": ["bun"],
-    "strict": true,
-    "skipLibCheck": true,
-    "noEmit": true,
-    "allowImportingTsExtensions": true
+    "types": ["bun", "node"],
+    "noImplicitAny": false,
+    "resolveJsonModule": true,
+    "noEmit": true
   },
-  "include": ["src"]
+  "include": [
+    "src/**/*",
+    "package.json",
+    "pm2.config.mjs"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

@@ -1,5 +1,5 @@
 import type { OnInit } from '@angular/core'
-import { Component, inject, signal } from '@angular/core'
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core'
 import { ActivatedRoute, RouterLink } from '@angular/router'
 import type { PageEvent } from '@angular/material/paginator'
 import { MatButtonModule } from '@angular/material/button'
@@ -20,6 +20,7 @@ import type { RawUrlBuilderArgs } from '../../shared/media-table'
   selector: 'app-folder-detail',
   imports: [RouterLink, MatButtonModule, MatIconModule, MatChipsModule, MediaTable],
   templateUrl: './folder-detail.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './folder-detail.scss',
 })
 export class FolderDetail implements OnInit {

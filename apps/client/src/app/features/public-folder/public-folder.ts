@@ -1,5 +1,5 @@
 import type { OnInit } from '@angular/core'
-import { Component, inject, signal } from '@angular/core'
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core'
 import { ActivatedRoute, RouterLink } from '@angular/router'
 import type { PageEvent } from '@angular/material/paginator'
 import { MatButtonModule } from '@angular/material/button'
@@ -18,6 +18,7 @@ import type { RawUrlBuilderArgs } from '../../shared/media-table'
   selector: 'app-public-folder',
   imports: [RouterLink, MatButtonModule, MatIconModule, MatChipsModule, MediaTable],
   templateUrl: './public-folder.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './public-folder.scss',
 })
 export class PublicFolder implements OnInit {

@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core'
+import { Component, input, output, ChangeDetectionStrategy } from '@angular/core'
 import { DatePipe } from '@angular/common'
 import { MatTableModule } from '@angular/material/table'
 import type { PageEvent } from '@angular/material/paginator'
@@ -35,6 +35,7 @@ export interface RawUrlBuilderArgs {
   selector: 'app-media-table',
   imports: [DatePipe, MatTableModule, MatPaginatorModule, MatIconModule, MatButtonModule, MatTooltipModule],
   templateUrl: './media-table.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './media-table.scss',
 })
 export class MediaTable {

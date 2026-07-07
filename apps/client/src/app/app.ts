@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core'
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core'
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router'
 import { MatToolbarModule } from '@angular/material/toolbar'
 import { MatButtonModule } from '@angular/material/button'
@@ -19,6 +19,7 @@ import { AuthService } from './core/auth.service'
     MatMenuModule,
   ],
   templateUrl: './app.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './app.scss',
 })
 export class App {

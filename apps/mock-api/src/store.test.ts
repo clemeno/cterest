@@ -1,8 +1,8 @@
 // Runnable check for the non-trivial pure helpers. `bun test` (or node --test).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { canRead, validateLimit, paginate, categoryOf, isPreviewable, resolveMime } from './store.ts'
-import type { Folder } from './store.ts'
+import { canRead, validateLimit, paginate, categoryOf, isPreviewable, resolveMime } from './store.js'
+import type { Folder } from './store.js'
 
 const folder = (inVisibility: Folder['visibility']): Folder => ({
   id: 'f', slug: 's', ownerEmail: 'owner@x', name: 'n', visibility: inVisibility, createdAt: '',

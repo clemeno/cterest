@@ -1,6 +1,6 @@
 import type { OnInit } from '@angular/core'
-import { Component, inject, signal } from '@angular/core'
-import { FormsModule } from '@angular/forms'
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core'
+import { form, required, FormField } from '@angular/forms/signals'
 import { RouterLink } from '@angular/router'
 import { MatCardModule } from '@angular/material/card'
 import { MatButtonModule } from '@angular/material/button'
@@ -25,7 +25,7 @@ interface VisibilityChange {
 @Component({
   selector: 'app-folders',
   imports: [
-    FormsModule,
+    FormField,
     RouterLink,
     MatCardModule,
     MatButtonModule,
@@ -35,45 +35,65 @@ interface VisibilityChange {
     MatSelectModule,
   ],
   templateUrl: './folders.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './folders.scss',
 })
 export class Folders implements OnInit {
   private readonly folders = inject(FolderService)
   private readonly snack = inject(MatSnackBar)
 
-  readonly list = signal<Folder[]>([])
-  readonly newName = signal('')
-  readonly newVisibility = signal<Visibility>('private')
-  readonly editingId = signal<string | null>(null)
-  readonly draftName = signal('')
-
   readonly visibilityOptions = kVisibilityOptions
+  readonly editingId = signal<string | null>(null)
+
+  // Signal Form (common create area): new folder name + visibility, name required.
+  private readonly createModel = signal<{ name: string; visibility: Visibility }>({ name: '', visibility: 'private' })
+  readonly createForm = form(this.createModel, inPath => {
+    required(inPath.name, { message: 'Name is required' })
+  })
+
+  // Signal Form (isolated single field): inline rename of the row being edited.
+  private readonly renameModel = signal<{ name: string }>({ name: '' })
+  readonly renameForm = form(this.renameModel, inPath => {
+    required(inPath.name)
+  })
+
+  // Signal Form (array — one standalone field per table row): the folders list.
+  // Each row's visibility select binds to listForm[i].visibility.
+  private readonly listModel = signal<Folder[]>([])
+  readonly listForm = form(this.listModel)
 
   async ngOnInit (): Promise<void> {
     await this.load()
   }
 
   async load (): Promise<void> {
-    this.list.set(await this.folders.listOwn())
+    this.listModel.set(await this.folders.listOwn())
+  }
+
+  get list (): Folder[] {
+    return this.listModel()
   }
 
   async create (): Promise<void> {
-    const vName = this.newName().trim()
-    if (vName === '') { return }
-    await this.folders.create({ name: vName, visibility: this.newVisibility() })
-    this.newName.set('')
-    this.newVisibility.set('private')
-    await this.load()
+    const vDraft = this.createModel()
+    const vName = vDraft.name.trim()
+    if (vName !== '') {
+      await this.folders.create({ name: vName, visibility: vDraft.visibility })
+      this.createModel.set({ name: '', visibility: 'private' })
+      await this.load()
+    }
   }
 
   startEdit (inFolder: Folder): void {
+    this.renameModel.set({ name: inFolder.name })
     this.editingId.set(inFolder.id)
-    this.draftName.set(inFolder.name)
   }
 
   async saveName (inFolder: Folder): Promise<void> {
-    const vName = this.draftName().trim()
-    if (vName !== '' && vName !== inFolder.name) { await this.folders.update({ id: inFolder.id, patch: { name: vName } }) }
+    const vName = this.renameForm.name().value().trim()
+    if (vName !== '' && vName !== inFolder.name) {
+      await this.folders.update({ id: inFolder.id, patch: { name: vName } })
+    }
     this.editingId.set(null)
     await this.load()
   }

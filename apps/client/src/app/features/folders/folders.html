@@ -5,39 +5,38 @@
 		<mat-card-content class="create-row">
 			<mat-form-field appearance="outline" class="grow">
 				<mat-label>New folder name</mat-label>
-				<input matInput [ngModel]="newName()" (ngModelChange)="newName.set($event)" name="newName" />
+				<input matInput [formField]="createForm.name" />
 			</mat-form-field>
 
 			<mat-form-field appearance="outline">
 				<mat-label>Visibility</mat-label>
-				<mat-select [ngModel]="newVisibility()" (ngModelChange)="newVisibility.set($event)" name="newVis">
+				<mat-select [formField]="createForm.visibility">
 					@for (v of visibilityOptions; track v) {
 						<mat-option [value]="v">{{ v }}</mat-option>
 					}
 				</mat-select>
 			</mat-form-field>
 
-			<button mat-flat-button color="primary" (click)="create()" [disabled]="!newName().trim()">
+			<button mat-flat-button color="primary" (click)="create()" [disabled]="createForm().invalid()">
 				<mat-icon>create_new_folder</mat-icon>
 				Create
 			</button>
 		</mat-card-content>
 	</mat-card>
 
-	@if (list().length === 0) {
+	@if (list.length === 0) {
 		<p class="empty">No folders yet.</p>
 	}
 
 	<div class="grid">
-		@for (folder of list(); track folder.id) {
+		@for (folder of list; track folder.id; let i = $index) {
 			<mat-card>
 				<mat-card-header>
 					<mat-card-title>
 						@if (editingId() === folder.id) {
 							<input
 								class="rename"
-								[ngModel]="draftName()"
-								(ngModelChange)="draftName.set($event)"
+								[formField]="renameForm.name"
 								(keyup.enter)="saveName(folder)"
 								(blur)="saveName(folder)"
 							/>
@@ -51,7 +50,10 @@
 				<mat-card-content>
 					<mat-form-field appearance="outline" class="vis">
 						<mat-label>Visibility</mat-label>
-						<mat-select [ngModel]="folder.visibility" (ngModelChange)="changeVisibility({ folder, visibility: $event })" [name]="'vis-' + folder.id">
+						<mat-select
+							[formField]="listForm[i].visibility"
+							(selectionChange)="changeVisibility({ folder, visibility: $event.value })"
+						>
 							@for (v of visibilityOptions; track v) {
 								<mat-option [value]="v">{{ v }}</mat-option>
 							}

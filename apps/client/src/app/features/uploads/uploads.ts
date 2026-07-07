@@ -1,5 +1,5 @@
 import type { OnInit } from '@angular/core'
-import { Component, inject, signal } from '@angular/core'
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core'
 import type { PageEvent } from '@angular/material/paginator'
 import { MatButtonModule } from '@angular/material/button'
 import { MatIconModule } from '@angular/material/icon'
@@ -16,6 +16,7 @@ import type { RawUrlBuilderArgs } from '../../shared/media-table'
   selector: 'app-uploads',
   imports: [MatButtonModule, MatIconModule, MatProgressBarModule, MediaTable],
   templateUrl: './uploads.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './uploads.scss',
 })
 export class Uploads implements OnInit {

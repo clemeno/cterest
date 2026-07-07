@@ -4,27 +4,27 @@
 // the web AuthService hides that behind one interface, so swapping in the real
 // API later needs no component change.
 
-import { Elysia } from 'elysia'
 import { cors } from '@elysiajs/cors'
-import { UUID_V4, UUID_V7 } from 'cme-utils'
+import { TO_NUMBER, UUID_V4, UUID_V7 } from 'cme-utils'
+import { Elysia } from 'elysia'
+import type { Media, Store, Visibility } from './store.js'
 import {
-  seed,
   canRead,
   categoryOf,
   isPreviewable,
-  resolveMime,
-  validateLimit,
-  parseOffset,
-  paginate,
   newSlug,
+  paginate,
+  parseOffset,
+  resolveMime,
+  seed,
   svgPlaceholder,
-} from './store.ts'
-import type { Media, Store, Visibility } from './store.ts'
+  validateLimit,
+} from './store.js'
 
 const kCookieName = 'cterest.mock'
 const kDefaultPort = 3001
-const vEnvPort = Number(process.env.PORT)
-const kPort = Number.isInteger(vEnvPort) && vEnvPort > 0 ? vEnvPort : kDefaultPort
+const vEnvPort = TO_NUMBER(process.env.PORT)
+const kPort = (Number.isSafeInteger(vEnvPort) && 0 < vEnvPort && vEnvPort <= 65_535) ? vEnvPort : kDefaultPort
 const kMaxDimension = 100_000
 const kSessionMaxAge = 86_400
 const kVisibilities: Visibility[] = ['private', 'protected', 'public']

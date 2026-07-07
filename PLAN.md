@@ -9,7 +9,7 @@ offering preview, open, and download.
 
 Status: **proof-of-concept in progress**. This document is the reference to build
 against. Built so far: `apps/mock-api` (in-memory mock of the §7 contract) and
-`apps/web` (Angular client). Not yet built: `apps/api` (the real ElysiaJS +
+`apps/client` (Angular client). Not yet built: `apps/api` (the real ElysiaJS +
 Drizzle + Better Auth + upload backend).
 
 ---
@@ -18,8 +18,8 @@ Drizzle + Better Auth + upload backend).
 
 | Area | Decision |
 |---|---|
-| Repo | Monorepo, Bun workspaces |
-| Layout | `apps/api`, `apps/web` |
+| Repo | Standalone projects — no workspace/monorepo tooling; each app is self-contained |
+| Layout | `apps/api`, `apps/client`, `apps/mock-api` — each owns its `node_modules`, `bun.lock`, and `tsconfig` |
 | Runtime | Tiered: **Bun** (primary) → **Node 24+** → external-lib fallback |
 | Backend | ElysiaJS 1.4.x; Node via `@elysiajs/node` adapter |
 | DB (POC) | SQLite via Drizzle ORM → migrate to Postgres later (driver swap) |
@@ -35,7 +35,7 @@ Drizzle + Better Auth + upload backend).
 | Limits | Per-user + global storage quota, upload rate limit, concurrent-upload cap |
 | Media types | image / video / audio / text / document (office: docx/xlsx/pptx; code: html/css/scss/js/ts/json/md) — client MIME pre-check + server magic-number validation; active subtypes (html/svg/js/ts) accepted but served **attachment-only**, never inline |
 | Max upload | 1 GB, streamed to disk (never fully buffered in memory) |
-| Frontend | Angular (latest) + Angular Material, Material 3 theme |
+| Frontend | Angular 22 (zoneless, all-OnPush, Signal Forms) + Angular Material M3; TypeScript 6; standalone **Node.js + npm** toolchain |
 
 ---
 
@@ -43,6 +43,10 @@ Drizzle + Better Auth + upload backend).
 
 Bun is primary; Node 24+ is the fallback because production servers may not have
 Bun. Only two spots are runtime-specific — everything else is one shared code path.
+
+These tiers govern the **backend** (`api`, and the `mock-api` which runs on Bun).
+The Angular **frontend** is a separate standalone project built and run with
+**Node.js + npm** (Angular 22's CLI requires Node ≥ 24.15) — it is not run on Bun.
 
 **Tier order:**
 1. **Bun** — `bun:sqlite`, native serve, Web Crypto, `node:fs`.
@@ -79,9 +83,10 @@ Angular client.
 | `cme-utils` | ~5.6.4 | UUIDv7 generation (Web Crypto, runs everywhere) |
 | `bun:sqlite` / `node:sqlite` | built in | zero native deps on Bun / Node 24+ |
 | `better-sqlite3` | latest | only if Node < 22.5 |
-| Angular + Angular Material | latest | M3 default; `ng add` + `m3-theme` schematic |
+| Angular + Angular Material | 22.x | M3 default; **zoneless** + all-**OnPush** + **Signal Forms** (`@angular/forms/signals`); TypeScript 6; standalone Node.js + npm project |
 
-Tests: `node:test` — runs on both Bun and Node, no framework dependency.
+Tests: backend + `mock-api` use `node:test` (run via `bun test`), no framework
+dependency. Frontend uses **Vitest** (Angular `@angular/build:unit-test`, jsdom).
 
 ---
 
@@ -373,6 +378,7 @@ on the app origin (see §11 C1):
 
 ## 8. Frontend (Angular + Material M3)
 
+- **Stack:** standalone **Node.js + npm** project on **Angular 22** — zoneless (`provideZonelessChangeDetection()`, no zone.js), every component `ChangeDetectionStrategy.OnPush`, and **Signal Forms** (`@angular/forms/signals`) for every input (sign-in email; folders create / inline rename / per-row visibility), bound with the `[formField]` directive — Material inputs interop through their `ControlValueAccessor`. TypeScript 6.
 - Google Identity Services sign-in button → Better Auth client `signIn.social({ provider: 'google', idToken })`.
 - Upload form: drag-drop zone + file picker (`<input type="file" multiple>`, optional `webkitdirectory` for folder pick). Client-side MIME pre-check. Reads image dimensions / media duration client-side for metadata.
 - **Main page** (post-login landing, guarded route): the caller's **own uploads**,
@@ -392,7 +398,7 @@ on the app origin (see §11 C1):
   read-only folder for anonymous or member visitors via the folder-scoped read
   API (§7). Protected slugs additionally require a signed-in member (the API gate
   enforces it; the UI prompts sign-in on `401`).
-- Build: `ng build` → static `apps/web/dist/browser/`, served in prod by the API via `@elysiajs/static` (single origin → no CORS). The API consumes only this **built artifact**, never the Angular source (see §9).
+- Build: `ng build` → static `apps/client/dist/browser/`, served in prod by the API via `@elysiajs/static` (single origin → no CORS). The API consumes only this **built artifact**, never the Angular source (see §9).
 
 Note on "local disk search": a browser cannot scan the filesystem. "Search local
 disk" means the OS file-open dialog / drag-drop of user-selected files.
@@ -405,23 +411,29 @@ Deferred: thumbnails / previews for video/audio/text/document (type icon for now
 
 ```
 cterest/
-├── apps/
-│   ├── api/          ElysiaJS + Drizzle + auth + upload (also serves web's build) — not yet built
+├── apps/               (plain container dir — no root package.json / workspace)
+│   ├── api/          ElysiaJS + Drizzle + auth + upload (also serves client's build) — not yet built
 │   │   └── uploads/  blob storage (gitignored; created on first upload)
-│   ├── mock-api/     Elysia in-memory mock of /api/* — lets the web client be
+│   ├── mock-api/     Elysia in-memory mock of /api/* — lets the client be
 │   │                 developed/tested with no DB, Google auth, or file storage
-│   └── web/          Angular + Material M3 → static build
+│   └── client/       Angular + Material M3 → static build
 │       └── dist/browser/   ng build output (gitignored); API's static root in prod
-├── PLAN.md
-└── package.json      Bun workspaces root
+└── PLAN.md
 ```
 
-**Local development (web client vs. mock API).** The web client is built and
+Each app under `apps/` is a **standalone project** with its own `package.json`,
+`node_modules`, lockfile, and `tsconfig` — no workspace root ties them together, so
+deps never cross between apps. Toolchains differ per app: `client` runs on **Node.js +
+npm** (`package-lock.json`); `mock-api` (and the future `api`) run on **Bun**
+(`bun.lock`).
+
+**Local development (client vs. mock API).** The client is built and
 tested independently of the real `api` against `mock-api`, an Elysia server that
 holds the whole dataset in memory and reproduces the §7 contract (auth session,
 own-uploads pagination, folder CRUD + link/unlink, slug-scoped public reads with
-the visibility gate). Two processes: `bun run mock` (Elysia on `:3001`, seeded)
-and `bun run web` (`ng serve` on `:4200`), or `bun run dev` for both. Angular's
+the visibility gate). Two processes, each started from its own project dir:
+`cd apps/mock-api && bun run dev` (Elysia on `:3001`, seeded) and
+`cd apps/client && bun run start` (`ng serve` on `:4200`). Angular's
 `proxy.conf.json` forwards `/api` → `:3001` so the browser sees one origin and the
 session cookie flows. Mock deviations from the real API are flagged with
 `ponytail:`/comment: sign-in is a whitelist pick (not the Better Auth Google
@@ -429,18 +441,18 @@ flow), uploads fabricate a media row (bytes discarded), and `/raw` returns an SV
 placeholder served inline so previews render. The real `api` implements the same
 routes, so the client's services/components move over unchanged.
 
-**`api` and `web` stay separate sibling workspaces — not nested, not renamed:**
+**`api` and `client` stay separate standalone projects — not nested, not renamed:**
 - The API serving Angular in prod is **artifact consumption, not source nesting**.
-  It points `@elysiajs/static` at `apps/web/dist/browser/` (the *build output*),
-  never at `apps/web/` source. Coupling is one-directional and runtime-only:
+  It points `@elysiajs/static` at `apps/client/dist/browser/` (the *build output*),
+  never at `apps/client/` source. Coupling is one-directional and runtime-only:
   `ng build` produces the folder, the API reads it.
 - Kept apart so each app owns its dep tree (Angular's CLI/compiler devDeps never
   reach the API), its build/test/lint, and its own tsconfig — `api` needs
-  `types: ["bun"]`, `web` needs the DOM lib, and a shared tsconfig can't be both.
+  `types: ["bun"]`, `client` needs the DOM lib, and a shared tsconfig can't be both.
 - `api` is **not** renamed: its job is API + auth + upload + DB; hosting static
-  files is incidental and does not change what the workspace is.
+  files is incidental and does not change what the project is.
 
-Prod packaging: copy `apps/web/dist/browser/` alongside the API (e.g. into the
+Prod packaging: copy `apps/client/dist/browser/` alongside the API (e.g. into the
 container image) so the single Elysia process serves both JSON endpoints and the
 SPA from one origin.
 

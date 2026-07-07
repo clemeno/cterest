@@ -7,7 +7,7 @@
     "dev": "bun run --hot src/index.ts",
     "start": "bun run src/index.ts",
     "lint": "eslint \"src/**/*.ts\" --fix",
-    "typecheck": "bun ../../node_modules/typescript/bin/tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "test": "bun test"
   },
   "dependencies": {
@@ -17,8 +17,11 @@
     "eslint-utils": "~3.0.0"
   },
   "devDependencies": {
+    "@tsconfig/bun": "~1.0.10",
     "@types/bun": "~1.3.14",
+    "@types/node": "~24.13.2",
     "eslint": "9.39.4",
-    "neostandard": "~0.13.0"
+    "neostandard": "~0.13.0",
+    "typescript": "~6.0.3"
   }
 }

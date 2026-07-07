@@ -1,6 +1,6 @@
 import type { OnInit } from '@angular/core'
-import { Component, inject, signal } from '@angular/core'
-import { FormsModule } from '@angular/forms'
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core'
+import { form, required, email, FormField } from '@angular/forms/signals'
 import { Router } from '@angular/router'
 import { MatCardModule } from '@angular/material/card'
 import { MatButtonModule } from '@angular/material/button'
@@ -15,7 +15,7 @@ import type { User } from '../../models'
 @Component({
   selector: 'app-sign-in',
   imports: [
-    FormsModule,
+    FormField,
     MatCardModule,
     MatButtonModule,
     MatFormFieldModule,
@@ -23,6 +23,7 @@ import type { User } from '../../models'
     MatIconModule,
   ],
   templateUrl: './sign-in.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './sign-in.scss',
 })
 export class SignIn implements OnInit {
@@ -30,23 +31,32 @@ export class SignIn implements OnInit {
   private readonly router = inject(Router)
 
   readonly demoUsers = signal<User[]>([])
-  readonly email = signal('')
   readonly error = signal<string | null>(null)
 
+  // Signal Form: a single isolated email field, required + standard email format.
+  private readonly model = signal({ email: '' })
+  readonly signInForm = form(this.model, inPath => {
+    required(inPath.email, { message: 'Email is required' })
+    email(inPath.email)
+  })
+
   async ngOnInit (): Promise<void> {
-    // Already signed in? Skip straight to the app.
+    // Already signed in? Skip straight to the app; else load the demo accounts.
+    let vNext: User[] = []
     if (this.auth.user() !== null) {
       await this.router.navigate(['/uploads'])
-      return
-    }
-    try {
-      this.demoUsers.set(await this.auth.demoUsers())
-    } catch {
-      this.demoUsers.set([])
+    } else {
+      try {
+        vNext = await this.auth.demoUsers()
+      } catch {
+        vNext = []
+      }
+      this.demoUsers.set(vNext)
     }
   }
 
-  async signIn (inEmail: string): Promise<void> {
+  // Sign in with an explicit whitelisted email (the demo-account buttons).
+  async signInWith (inEmail: string): Promise<void> {
     this.error.set(null)
     try {
       await this.auth.signIn(inEmail)
@@ -54,5 +64,10 @@ export class SignIn implements OnInit {
     } catch {
       this.error.set('Sign-in failed. This email is not whitelisted.')
     }
+  }
+
+  // Submit the manual email form (the button is disabled until the field is valid).
+  async submit (): Promise<void> {
+    await this.signInWith(this.signInForm.email().value())
   }
 }
