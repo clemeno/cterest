@@ -104,7 +104,7 @@ const app = new Elysia()
       // Session token uses random v4 (unpredictable) — not a sortable entity id, so not UUID_V7.
       const vSid = UUID_V4()
       db.sessions.set(vSid, vUser.email)
-      cookie[kCookieName].set({ value: vSid, httpOnly: true, sameSite: 'lax', path: '/', maxAge: kSessionMaxAge })
+      cookie[kCookieName]?.set({ value: vSid, httpOnly: true, sameSite: 'lax', path: '/', maxAge: kSessionMaxAge })
       vResult = { user: publicUser(vUser.email) }
     }
     return vResult
@@ -112,7 +112,7 @@ const app = new Elysia()
   .post('/api/auth/sign-out', ({ cookie }) => {
     const vSid = cookie[kCookieName]?.value as string | undefined
     if (vSid !== undefined) { db.sessions.delete(vSid) }
-    cookie[kCookieName].remove()
+    cookie[kCookieName]?.remove()
     return { ok: true }
   })
 

@@ -247,7 +247,7 @@ export function seed (): Store {
 
   // 30 media (>= one per kind) so default 10/page yields 3 pages; newest first.
   const vMedia: Media[] = Array.from(Array(30).keys()).map(vI => {
-    const vKind = vKinds[vI % vKinds.length]
+    const vKind = vKinds[vI % vKinds.length]! // modulo keeps index in range
     const vIsImg = vKind.cat === 'image'
     const vIsAv = vKind.cat === 'video' || vKind.cat === 'audio'
     return {
@@ -273,7 +273,7 @@ export function seed (): Store {
 
   // Link the first few media into each folder (playlist-style references, §5).
   const vLinks: Link[] = vFolders.flatMap(inFolder =>
-    Array.from(Array(6).keys()).map(vI => ({ folderId: inFolder.id, mediaId: vMedia[vI].id, addedAt: iso(vI * 1000) }))
+    Array.from(Array(6).keys()).map(vI => ({ folderId: inFolder.id, mediaId: vMedia[vI]!.id, addedAt: iso(vI * 1000) })) // 6 <= 30 media
   )
 
   return {
