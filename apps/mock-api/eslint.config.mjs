@@ -1,6 +1,6 @@
 // import tsEslintPlugin from '@typescript-eslint/eslint-plugin'
 import tsEslintParser from '@typescript-eslint/parser'
-import { MAX_RETURN_STATEMENTS_PER_FUNCTION_PLUGIN } from 'cme-utils/esm/max-return-statements-per-function.plugin.js'
+import { MAX_RETURN_STATEMENTS_PER_FUNCTION_PLUGIN } from 'cme-utils/m/max-return-statements-per-function.plugin.js'
 import neostandard, { resolveIgnoresFromGitignore } from 'neostandard'
 
 const tsRules = {

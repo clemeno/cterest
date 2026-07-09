@@ -80,7 +80,7 @@ Angular client.
 | `@elysiajs/cors` | 1.4.x | dev only (same origin in prod) |
 | `drizzle-orm` + `drizzle-kit` | latest | ORM + migrations |
 | `better-auth` | latest | auth engine: Google verify + sessions + Drizzle adapter (web-standard handler, both runtimes) |
-| `cme-utils` | ~5.6.4 | UUIDv7 generation (Web Crypto, runs everywhere) |
+| `cme-utils` | ~6.0.0 | UUIDv7 generation (Web Crypto, runs everywhere) |
 | `bun:sqlite` / `node:sqlite` | built in | zero native deps on Bun / Node 24+ |
 | `better-sqlite3` | latest | only if Node < 22.5 |
 | Angular + Angular Material | 22.x | M3 default; **zoneless** + all-**OnPush** + **Signal Forms** (`@angular/forms/signals`); TypeScript 6; standalone Node.js + npm project |
