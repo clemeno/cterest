@@ -1,0 +1,19 @@
+# cterest sample
+
+Markdown fixture served by the mock API.
+
+## Features
+
+- **Bold** and _italic_ text
+- Inline `code` and a [link](https://example.com)
+- A fenced block:
+
+```ts
+const answer: number = 42
+```
+
+> Edit me in the app and hit save — this file is overwritten on disk.
+
+| Kind  | Highlighted |
+| ----- | ----------- |
+| text  | via Shiki   |

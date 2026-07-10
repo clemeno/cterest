@@ -1,0 +1,15 @@
+// cterest sample — .cjs (CommonJS module)
+'use strict'
+
+const kName = 'cterest-sample'
+
+/* Clamp a value into [min, max]. */
+function clamp(inValue, inMin, inMax) {
+	return Math.min(Math.max(inValue, inMin), inMax)
+}
+
+module.exports = {
+	name: kName,
+	clamp,
+	pageSizes: [10, 20, 50, 100, 200],
+}

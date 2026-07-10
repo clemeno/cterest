@@ -1,0 +1,10 @@
+// cterest sample — .mjs (always an ES module)
+import { readFile } from 'node:fs/promises'
+
+export async function loadText(inPath) {
+	const vBuffer = await readFile(inPath, 'utf8')
+	return vBuffer.trim()
+}
+
+const kMax = 200
+export const pageSizes = [10, 20, 50, 100, kMax]

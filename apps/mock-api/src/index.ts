@@ -29,6 +29,13 @@ const kMaxDimension = 100_000
 const kSessionMaxAge = 86_400
 const kVisibilities: Visibility[] = ['private', 'protected', 'public']
 
+// Text extensions we ship an on-disk sample for (see ../fixtures/<ext>.sample). Doubles
+// as a path-traversal allowlist: only these join the fixtures dir, so the path built in
+// textFixturePath is fully server-controlled even for attacker-chosen filenames. The
+// .sample disk suffix keeps these files out of the lint/tsc globs — the media record's
+// filename, not the disk name, drives the editor language.
+const kTextExts = ['txt', 'md', 'html', 'css', 'scss', 'js', 'mjs', 'cjs', 'ts', 'json']
+
 const db: Store = seed()
 
 // Newest-upload-first order, shared by the owner + folder listings.
@@ -56,15 +63,39 @@ function folderMedia (inFolderId: string) {
     .sort(byNewest)
 }
 
-// Sandbox headers + a placeholder body for any /raw response (§7). Mock serves an
-// SVG inline so previews render; the real API forces SVG to attachment.
-function rawResponse (inArgs: { media: ReturnType<typeof folderMedia>[number]; download: boolean }): Response {
+// Absolute path to the on-disk sample backing a text media, or null when the media
+// is not a text kind we ship a fixture for. The extension is checked against the
+// kTextExts allowlist first, so the returned path can never escape the fixtures dir.
+function textFixturePath (inMedia: Media): string | null {
+  const vExt = inMedia.filename.split('.').pop()?.toLowerCase() ?? ''
+  const vOk = inMedia.category === 'text' && kTextExts.includes(vExt)
+  return vOk ? `${import.meta.dir}/../fixtures/${vExt}.sample` : null
+}
+
+// Sandbox headers + a body for any /raw response (§7). Text media stream their real
+// fixture bytes (so the editor has something to highlight/edit); everything else gets
+// an inline SVG placeholder. The real API would stream the stored file for all kinds.
+async function rawResponse (inArgs: { media: Media; download: boolean }): Promise<Response> {
   const vMedia = inArgs.media
-  const vDisposition = inArgs.download || !vMedia.previewable ? 'attachment' : 'inline'
   const vName = encodeURIComponent(vMedia.filename)
-  return new Response(svgPlaceholder(vMedia), {
+  const vTextPath = textFixturePath(vMedia)
+  const vTextFile = vTextPath !== null ? Bun.file(vTextPath) : null
+  let vBody: string
+  let vContentType: string
+  let vInline: boolean
+  if (vTextFile !== null && await vTextFile.exists()) {
+    vBody = await vTextFile.text()
+    vContentType = `${vMedia.mime}; charset=utf-8`
+    vInline = !inArgs.download
+  } else {
+    vBody = svgPlaceholder(vMedia)
+    vContentType = 'image/svg+xml'
+    vInline = !inArgs.download && vMedia.previewable
+  }
+  const vDisposition = vInline ? 'inline' : 'attachment'
+  return new Response(vBody, {
     headers: {
-      'Content-Type': 'image/svg+xml',
+      'Content-Type': vContentType,
       'X-Content-Type-Options': 'nosniff',
       'Content-Security-Policy': "sandbox; default-src 'none'",
       'Content-Disposition': `${vDisposition}; filename*=UTF-8''${vName}`,
@@ -177,7 +208,7 @@ const app = new Elysia()
     }
     return vResult
   })
-  .get('/api/media/:id/raw', ({ cookie, params, query, set }) => {
+  .get('/api/media/:id/raw', async ({ cookie, params, query, set }) => {
     const vEmail = currentEmail(cookie)
     const vMedia = db.media.find(m => m.id === params.id)
     let vResult: unknown
@@ -185,7 +216,25 @@ const app = new Elysia()
       set.status = 404
       vResult = { error: 'not found' }
     } else {
-      vResult = rawResponse({ media: vMedia, download: query.download !== undefined })
+      vResult = await rawResponse({ media: vMedia, download: query.download !== undefined })
+    }
+    return vResult
+  })
+  // Save edited text back to its fixture (owner-only). Mock-only: this MUTATES the
+  // on-disk sample under ../fixtures. Non-text media / non-owners get a flat 404.
+  .put('/api/media/:id/raw', async ({ cookie, params, request, set }) => {
+    const vEmail = currentEmail(cookie)
+    const vMedia = db.media.find(m => m.id === params.id)
+    const vPath = vMedia !== undefined ? textFixturePath(vMedia) : null
+    let vResult: unknown
+    if (vMedia === undefined || vMedia.uploaderEmail !== vEmail || vPath === null) {
+      set.status = 404
+      vResult = { error: 'not found' }
+    } else {
+      const vText = await request.text()
+      await Bun.write(vPath, vText)
+      vMedia.size = new TextEncoder().encode(vText).length
+      vResult = { ok: true, size: vMedia.size }
     }
     return vResult
   })
@@ -336,7 +385,7 @@ const app = new Elysia()
     }
     return vResult
   })
-  .get('/api/f/:slug/media/:mediaId/raw', ({ cookie, params, query, set }) => {
+  .get('/api/f/:slug/media/:mediaId/raw', async ({ cookie, params, query, set }) => {
     const vEmail = currentEmail(cookie)
     const vFolder = db.folders.find(f => f.slug === params.slug)
     const vAllowed = canRead({ folder: vFolder, email: vEmail })
@@ -346,7 +395,7 @@ const app = new Elysia()
       set.status = 404
       vResult = { error: 'not found' }
     } else {
-      vResult = rawResponse({ media: vMedia, download: query.download !== undefined })
+      vResult = await rawResponse({ media: vMedia, download: query.download !== undefined })
     }
     return vResult
   })

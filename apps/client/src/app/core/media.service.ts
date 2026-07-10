@@ -53,4 +53,19 @@ export class MediaService {
   rawUrl (inRaw: RawUrlArgs): string {
     return `/api/media/${inRaw.id}/raw${inRaw.download ? '?download' : ''}`
   }
+
+  // Fetch a media's raw bytes as text for the in-app editor. The URL is the caller's
+  // context-correct /raw endpoint (owner or folder-scoped), so this works in any view.
+  readRaw (inUrl: string): Promise<string> {
+    return firstValueFrom(this.http.get(inUrl, { responseType: 'text' }))
+  }
+
+  // Persist edited text back to an owned media (mock: overwrites the on-disk fixture).
+  saveText (inArgs: { id: string; content: string }): Promise<{ ok: boolean; size: number }> {
+    return firstValueFrom(this.http.put<{ ok: boolean; size: number }>(
+      `/api/media/${inArgs.id}/raw`,
+      inArgs.content,
+      { headers: { 'Content-Type': 'text/plain' } }
+    ))
+  }
 }

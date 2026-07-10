@@ -1,0 +1,17 @@
+// cterest sample — ES module JavaScript
+const kGreeting = 'hello from the mock'
+
+/* Sum a list of numbers. */
+export function total(inNumbers) {
+	return inNumbers.reduce((vAcc, vN) => vAcc + vN, 0)
+}
+
+export const media = {
+	id: 'sample-js',
+	size: 1234,
+	previewable: true,
+}
+
+if (import.meta.url) {
+	console.log(kGreeting, total([1, 2, 3]))
+}

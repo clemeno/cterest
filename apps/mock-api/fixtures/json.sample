@@ -1,0 +1,15 @@
+{
+	"name": "cterest-sample",
+	"version": "1.0.0",
+	"previewable": true,
+	"tags": ["mock", "fixture", "text"],
+	"limits": {
+		"maxSize": 1048576,
+		"pageSizes": [10, 20, 50, 100, 200]
+	},
+	"owner": {
+		"email": "demo@cterest.dev",
+		"name": "Demo Owner"
+	},
+	"nullable": null
+}

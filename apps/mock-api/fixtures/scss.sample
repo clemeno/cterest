@@ -1,0 +1,23 @@
+// cterest sample SCSS
+$brand: #1a2a30;
+$accent: #00ffdd;
+$pad: 16px;
+
+@mixin card($radius: 8px) {
+	padding: $pad ($pad * 1.5);
+	background: $brand;
+	color: #f8f8f2;
+	border-radius: $radius;
+}
+
+.card {
+	@include card();
+
+	&:hover {
+		outline: 2px solid $accent;
+	}
+
+	.title {
+		font-weight: 700;
+	}
+}

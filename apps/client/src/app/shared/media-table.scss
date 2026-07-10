@@ -2,6 +2,23 @@ table {
 	width: 100%;
 }
 
+.mat-column-preview {
+	text-align: center;
+}
+
+.row-actions {
+	display: flex;
+	justify-content: flex-end;
+}
+
+.thumb-btn {
+	padding: 0;
+	border: 0;
+	background: none;
+	cursor: pointer;
+	display: inline-block;
+}
+
 .thumb {
 	width: 56px;
 	height: 36px;

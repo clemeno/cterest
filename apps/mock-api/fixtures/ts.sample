@@ -1,0 +1,25 @@
+// cterest sample — TypeScript
+type Category = 'image' | 'video' | 'audio' | 'text' | 'document'
+
+interface Media {
+	id: string
+	filename: string
+	category: Category
+	size: number
+	previewable: boolean
+}
+
+const kMaxSize = 1_048_576
+
+/* Keep only media below the size ceiling. */
+export function underLimit(inMedia: readonly Media[]): Media[] {
+	return inMedia.filter(vM => vM.size < kMaxSize)
+}
+
+export const sample: Media = {
+	id: 'sample-ts',
+	filename: 'sample.ts',
+	category: 'text',
+	size: 512,
+	previewable: true,
+}

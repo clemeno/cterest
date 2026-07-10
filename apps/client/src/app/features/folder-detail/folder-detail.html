@@ -27,6 +27,7 @@
 			[pageIndex]="inIndex()"
 			[rawUrl]="rawInFolder"
 			[showRemove]="true"
+			[editable]="true"
 			(pageChange)="onInPage($event)"
 			(removed)="removeFromFolder($event)"
 		></app-media-table>
@@ -40,6 +41,7 @@
 			[pageIndex]="ownIndex()"
 			[rawUrl]="rawOwn"
 			[showAdd]="true"
+			[editable]="true"
 			(pageChange)="onOwnPage($event)"
 			(added)="add($event)"
 		></app-media-table>

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<!-- cterest sample document -->
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Sample</title>
+	</head>
+	<body>
+		<main class="card" data-kind="text">
+			<h1>Hello from the mock</h1>
+			<p>This HTML is streamed by <code>/api/media/:id/raw</code>.</p>
+			<a href="https://example.com" rel="noopener">A link</a>
+		</main>
+	</body>
+</html>

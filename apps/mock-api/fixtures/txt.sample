@@ -1,0 +1,10 @@
+cterest mock fixture — plain text
+=================================
+
+This is the on-disk sample streamed by GET /api/media/:id/raw for the .txt media.
+Editing it in the app and saving issues PUT /api/media/:id/raw, which overwrites
+this very file. Plain text has no syntax highlighting — Monaco renders it as-is.
+
+- no tokens here
+- just lines
+- line numbers live in the non-selectable left gutter
