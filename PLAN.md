@@ -84,6 +84,7 @@ Angular client.
 | `bun:sqlite` / `node:sqlite` | built in | zero native deps on Bun / Node 24+ |
 | `better-sqlite3` | latest | only if Node < 22.5 |
 | Angular + Angular Material | 22.x | M3 default; **zoneless** + all-**OnPush** + **Signal Forms** (`@angular/forms/signals`); TypeScript 6; standalone Node.js + npm project |
+| `monaco-editor` / `shiki` + `@shikijs/monaco` / `marked` / `@fontsource/fira-code` | pinned | client-only: in-app text editor (Monaco), syntax highlight (Shiki, shared theme), markdown render (marked), editor font |
 
 Tests: backend + `mock-api` use `node:test` (run via `bun test`), no framework
 dependency. Frontend uses **Vitest** (Angular `@angular/build:unit-test`, jsdom).
@@ -330,6 +331,8 @@ POST   /api/media[?folderId=…]   raw-body streaming upload → validate → st
 GET    /api/media?limit=&offset= list caller's OWN uploads, newest first, paginated
                                  (limit ∈ {10,20,50,100,200} default 10, else 400)
 GET    /api/media/:id/raw        OWNER-ONLY raw bytes (your own file)
+PUT    /api/media/:id/raw        OWNER-ONLY overwrite a TEXT media's bytes (in-app
+                                 editor save; body = new text). Text kinds only, else 404
 DELETE /api/media/:id            OWNER-ONLY 403 unless media.uploaderEmail ===
                                  session email; remove row + cascade links + GC (§6.6)
 
@@ -387,7 +390,16 @@ on the app origin (see §11 C1):
   params. All stored fields (filename, etc.) render via Angular's default
   interpolation — **never** `[innerHTML]` or `bypassSecurityTrust*` (would
   reintroduce XSS from stored metadata).
-  - Preview only for `previewable` rows (raster allowlist from §6): hover → lazy `<img loading="lazy" src="/api/media/:id/raw">`. SVG and everything else get a type icon, no inline render.
+  - Table thumbnail: `previewable` raster rows (allowlist from §6) render a lazy
+    `<img loading="lazy" src="/api/media/:id/raw">`; every other kind shows a type
+    icon. SVG is icon-only, no inline render (§12).
+  - **In-app preview** — clicking a row's preview opens it in a modal (no new tab):
+    - image → full-size lightbox; audio/video → `<audio>`/`<video>` player.
+    - text/code → Monaco editor, **read-only unless the table is `editable`** (an
+      owner context; public/folder views stay read-only). Owners edit + save
+      (Ctrl/Cmd+S or the save button → `PUT /api/media/:id/raw`, §7). Markdown/HTML
+      render side-by-side; fenced code blocks are syntax-highlighted. The preview
+      pane is a sandboxed `<iframe sandbox>` (no script execution).
   - Every row: "open" (`<a target="_blank" rel="noopener" href=".../raw">`) and "download" (`<a href=".../raw?download" download>`). Cookie auth means the anchors just work; the `/raw` sandbox headers (§7) contain anything opened in a new tab.
 - **Folders page** (guarded): manage the caller's folders — create, rename, set
   visibility (private / protected / public), and **reference / dereference** own
@@ -403,7 +415,9 @@ on the app origin (see §11 C1):
 Note on "local disk search": a browser cannot scan the filesystem. "Search local
 disk" means the OS file-open dialog / drag-drop of user-selected files.
 
-Deferred: thumbnails / previews for video/audio/text/document (type icon for now).
+Deferred: table **thumbnails** for video/audio/text/document (type icon in the
+table; a full preview is already available in-app via the modal above) and SVG
+inline preview (§12).
 
 ---
 
@@ -437,9 +451,12 @@ the visibility gate). Two processes, each started from its own project dir:
 `proxy.conf.json` forwards `/api` → `:3001` so the browser sees one origin and the
 session cookie flows. Mock deviations from the real API are flagged with
 `ponytail:`/comment: sign-in is a whitelist pick (not the Better Auth Google
-flow), uploads fabricate a media row (bytes discarded), and `/raw` returns an SVG
-placeholder served inline so previews render. The real `api` implements the same
-routes, so the client's services/components move over unchanged.
+flow), uploads fabricate a media row (bytes discarded), and `/raw` streams a real
+on-disk fixture for **text** media (`apps/mock-api/fixtures/<ext>.sample`, so the
+editor has real bytes to highlight and edit — `PUT /api/media/:id/raw` overwrites
+that file) while non-text kinds return an inline SVG placeholder so previews
+render. The real `api` implements the same routes, so the client's
+services/components move over unchanged.
 
 **`api` and `client` stay separate standalone projects — not nested, not renamed:**
 - The API serving Angular in prod is **artifact consumption, not source nesting**.
