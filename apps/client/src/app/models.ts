@@ -50,5 +50,5 @@ export interface Paginated<T> {
 }
 
 // Page sizes offered by mat-paginator; the API rejects anything else (§8).
-export const kPageSizeOptions = [10, 20, 50, 100, 200]
-export const kDefaultPageSize = 10
+export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100, 200]
+export const DEFAULT_PAGE_SIZE = 10

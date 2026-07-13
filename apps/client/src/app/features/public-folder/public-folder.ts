@@ -7,7 +7,7 @@ import { MatIconModule } from '@angular/material/icon'
 import { MatChipsModule } from '@angular/material/chips'
 import { FolderService } from '../../core/folder.service'
 import type { Media, PublicFolder as PublicFolderMeta } from '../../models'
-import { kDefaultPageSize } from '../../models'
+import { DEFAULT_PAGE_SIZE } from '../../models'
 import { MediaTable } from '../../shared/media-table'
 import type { RawUrlBuilderArgs } from '../../shared/media-table'
 
@@ -31,7 +31,7 @@ export class PublicFolder implements OnInit {
   readonly denied = signal(false)
   readonly items = signal<Media[]>([])
   readonly total = signal(0)
-  readonly pageSize = signal(kDefaultPageSize)
+  readonly pageSize = signal(DEFAULT_PAGE_SIZE)
   readonly pageIndex = signal(0)
 
   readonly rawUrl = (inArgs: RawUrlBuilderArgs): string =>
@@ -47,9 +47,9 @@ export class PublicFolder implements OnInit {
   }
 
   async load (): Promise<void> {
-    const vPage = await this.folders.listBySlug({ slug: this.slug, limit: this.pageSize(), offset: this.pageIndex() * this.pageSize() })
-    this.items.set(vPage.items)
-    this.total.set(vPage.total)
+    const page = await this.folders.listBySlug({ slug: this.slug, limit: this.pageSize(), offset: this.pageIndex() * this.pageSize() })
+    this.items.set(page.items)
+    this.total.set(page.total)
   }
 
   async onPage (inEvent: PageEvent): Promise<void> {

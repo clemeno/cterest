@@ -6,7 +6,7 @@ import { MatIconModule } from '@angular/material/icon'
 import { MatProgressBarModule } from '@angular/material/progress-bar'
 import { MediaService } from '../../core/media.service'
 import type { Media } from '../../models'
-import { kDefaultPageSize } from '../../models'
+import { DEFAULT_PAGE_SIZE } from '../../models'
 import { MediaTable } from '../../shared/media-table'
 import type { RawUrlBuilderArgs } from '../../shared/media-table'
 
@@ -24,7 +24,7 @@ export class Uploads implements OnInit {
 
   readonly items = signal<Media[]>([])
   readonly total = signal(0)
-  readonly pageSize = signal(kDefaultPageSize)
+  readonly pageSize = signal(DEFAULT_PAGE_SIZE)
   readonly pageIndex = signal(0)
   readonly uploading = signal(false)
   readonly dragging = signal(false)
@@ -39,9 +39,9 @@ export class Uploads implements OnInit {
 
   // Fetch the current page of own uploads.
   async load (): Promise<void> {
-    const vPage = await this.media.listOwn({ limit: this.pageSize(), offset: this.pageIndex() * this.pageSize() })
-    this.items.set(vPage.items)
-    this.total.set(vPage.total)
+    const page = await this.media.listOwn({ limit: this.pageSize(), offset: this.pageIndex() * this.pageSize() })
+    this.items.set(page.items)
+    this.total.set(page.total)
   }
 
   async onPage (inEvent: PageEvent): Promise<void> {
@@ -53,24 +53,24 @@ export class Uploads implements OnInit {
   async onDrop (inEvent: DragEvent): Promise<void> {
     inEvent.preventDefault()
     this.dragging.set(false)
-    const vFiles = inEvent.dataTransfer?.files
-    if (vFiles !== undefined && vFiles.length > 0) { await this.uploadFiles(vFiles) }
+    const files = inEvent.dataTransfer?.files
+    if (files !== undefined && files.length > 0) { await this.uploadFiles(files) }
   }
 
   async onPick (inEvent: Event): Promise<void> {
-    const vInput = inEvent.target as HTMLInputElement
-    const vFiles = vInput.files
-    if (vFiles !== null && vFiles.length > 0) { await this.uploadFiles(vFiles) }
-    vInput.value = ''
+    const input = inEvent.target as HTMLInputElement
+    const files = input.files
+    if (files !== null && files.length > 0) { await this.uploadFiles(files) }
+    input.value = ''
   }
 
   // Upload each selected file (reading image dimensions client-side), then reload.
   async uploadFiles (inFiles: FileList): Promise<void> {
     this.uploading.set(true)
     try {
-      for (const vFile of Array.from(inFiles)) {
-        const vDims = await this.readDims(vFile)
-        await this.media.upload({ file: vFile, dims: vDims })
+      for (const file of Array.from(inFiles)) {
+        const dims = await this.readDims(file)
+        await this.media.upload({ file: file, dims: dims })
       }
       this.pageIndex.set(0)
       await this.load()
@@ -92,17 +92,17 @@ export class Uploads implements OnInit {
         inResolve({})
         return
       }
-      const vUrl = URL.createObjectURL(inFile)
-      const vImg = new Image()
-      vImg.onload = () => {
-        URL.revokeObjectURL(vUrl)
-        inResolve({ width: vImg.naturalWidth, height: vImg.naturalHeight })
+      const url = URL.createObjectURL(inFile)
+      const img = new Image()
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        inResolve({ width: img.naturalWidth, height: img.naturalHeight })
       }
-      vImg.onerror = () => {
-        URL.revokeObjectURL(vUrl)
+      img.onerror = () => {
+        URL.revokeObjectURL(url)
         inResolve({})
       }
-      vImg.src = vUrl
+      img.src = url
     })
   }
 }

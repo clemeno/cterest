@@ -9,12 +9,12 @@ import { MatTooltipModule } from '@angular/material/tooltip'
 import { MatDialog, MatDialogModule, MAT_DIALOG_DATA } from '@angular/material/dialog'
 import { DragDropModule } from '@angular/cdk/drag-drop'
 import type { Media } from '../models'
-import { kDefaultPageSize, kPageSizeOptions } from '../models'
+import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from '../models'
 import { TextEditorDialog } from './text-editor-dialog'
 import { DialogTitlebar } from './dialog-titlebar'
 
 // Category -> Material icon for the non-previewable fallback tile.
-const kCategoryIcon: Record<Media['category'], string> = {
+const CATEGORY_ICON: Record<Media['category'], string> = {
   image: 'image',
   video: 'movie',
   audio: 'audiotrack',
@@ -23,7 +23,7 @@ const kCategoryIcon: Record<Media['category'], string> = {
 }
 
 // File extension -> Monaco/Shiki language id for the text editor (default plaintext).
-const kTextLang: Record<string, string> = {
+const TEXT_LANG: Record<string, string> = {
   txt: 'plaintext',
   md: 'markdown',
   html: 'html',
@@ -37,8 +37,8 @@ const kTextLang: Record<string, string> = {
 }
 
 // Byte-size thresholds for the human-readable formatter.
-const kKilobyte = 1024
-const kMegabyte = kKilobyte * 1024
+const KILOBYTE = 1024
+const MEGABYTE = KILOBYTE * 1024
 
 // One-object argument for the raw-URL builder (max-params: single param).
 export interface RawUrlBuilderArgs {
@@ -97,7 +97,7 @@ export class MediaPreviewDialog {
 export class MediaTable {
   readonly items = input.required<Media[]>()
   readonly total = input.required<number>()
-  readonly pageSize = input<number>(kDefaultPageSize)
+  readonly pageSize = input<number>(DEFAULT_PAGE_SIZE)
   readonly pageIndex = input<number>(0)
 
   // Builds the /raw URL for a row (differs between owner + folder-scoped routes).
@@ -116,34 +116,34 @@ export class MediaTable {
   readonly removed = output<Media>()
   readonly added = output<Media>()
 
-  readonly pageSizeOptions = kPageSizeOptions
+  readonly pageSizeOptions = PAGE_SIZE_OPTIONS
   readonly columns = ['preview', 'filename', 'category', 'size', 'uploaded', 'actions']
 
   private readonly dialog = inject(MatDialog)
 
   iconFor (inMedia: Media): string {
-    return kCategoryIcon[inMedia.category]
+    return CATEGORY_ICON[inMedia.category]
   }
 
   // Open the media in a modal preview (image lightbox, audio or video player).
   openPreview (inMedia: Media): void {
-    const vPlayable = inMedia.category === 'audio' || inMedia.category === 'video'
-    const vKind = vPlayable ? inMedia.category : 'image'
+    const playable = inMedia.category === 'audio' || inMedia.category === 'video'
+    const kind = playable ? inMedia.category : 'image'
     this.dialog.open(MediaPreviewDialog, {
-      data: { kind: vKind, src: this.rawUrl()({ media: inMedia, download: false }), alt: inMedia.filename },
+      data: { kind: kind, src: this.rawUrl()({ media: inMedia, download: false }), alt: inMedia.filename },
     })
   }
 
   // Open a text file in the Monaco editor (read-only unless this table is editable).
   openText (inMedia: Media): void {
-    const vExt = inMedia.filename.split('.').pop()?.toLowerCase() ?? ''
+    const ext = inMedia.filename.split('.').pop()?.toLowerCase() ?? ''
     this.dialog.open(TextEditorDialog, {
       data: {
         src: this.rawUrl()({ media: inMedia, download: false }),
         filename: inMedia.filename,
         mediaId: inMedia.id,
         editable: this.editable(),
-        lang: kTextLang[vExt] ?? 'plaintext',
+        lang: TEXT_LANG[ext] ?? 'plaintext',
       },
       maxWidth: '90vw',
     })
@@ -151,9 +151,9 @@ export class MediaTable {
 
   // Human-readable byte size.
   formatSize (inBytes: number): string {
-    let vResult = `${(inBytes / kMegabyte).toFixed(1)} MB`
-    if (inBytes < kKilobyte) { vResult = `${inBytes} B` }
-    if (inBytes >= kKilobyte && inBytes < kMegabyte) { vResult = `${(inBytes / kKilobyte).toFixed(1)} KB` }
-    return vResult
+    let result = `${(inBytes / MEGABYTE).toFixed(1)} MB`
+    if (inBytes < KILOBYTE) { result = `${inBytes} B` }
+    if (inBytes >= KILOBYTE && inBytes < MEGABYTE) { result = `${(inBytes / KILOBYTE).toFixed(1)} KB` }
+    return result
   }
 }

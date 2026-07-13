@@ -7,9 +7,9 @@ import { Router } from '@angular/router'
 import { AuthService } from './auth.service'
 
 export const authGuard: CanActivateFn = async () => {
-  const vAuth = inject(AuthService)
-  const vRouter = inject(Router)
+  const auth = inject(AuthService)
+  const router = inject(Router)
 
-  const vUser = vAuth.user() ?? (await vAuth.refresh())
-  return vUser !== null ? true : vRouter.createUrlTree(['/sign-in'])
+  const user = auth.user() ?? (await auth.refresh())
+  return user !== null ? true : router.createUrlTree(['/sign-in'])
 }

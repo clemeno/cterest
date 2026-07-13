@@ -15,26 +15,26 @@ export class AuthService {
 
   // Probe the current session (called at startup and by the auth guard).
   async refresh (): Promise<User | null> {
-    let vUser: User | null = null
+    let user: User | null = null
     try {
-      const vRes = await firstValueFrom(this.http.get<{ user: User | null }>('/api/auth/session'))
-      vUser = vRes.user
+      const res = await firstValueFrom(this.http.get<{ user: User | null }>('/api/auth/session'))
+      user = res.user
     } catch {
-      vUser = null
+      user = null
     } finally {
       this.ready.set(true)
     }
-    this.user.set(vUser)
-    return vUser
+    this.user.set(user)
+    return user
   }
 
   // Sign in with a whitelisted email + password; throws on rejection (generic failure).
   async signIn (inArgs: { email: string; password: string }): Promise<User> {
-    const vRes = await firstValueFrom(
+    const res = await firstValueFrom(
       this.http.post<{ user: User }>('/api/auth/mock-sign-in', inArgs)
     )
-    this.user.set(vRes.user)
-    return vRes.user
+    this.user.set(res.user)
+    return res.user
   }
 
   async signOut (): Promise<void> {

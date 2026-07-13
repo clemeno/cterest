@@ -25,10 +25,10 @@ await test('page size accepts only the allowed set', () => {
 })
 
 await test('paginate slices and reports untruncated total', () => {
-  const vAll = Array.from(Array(23).keys())
-  const vPage = paginate({ all: vAll, limit: 10, offset: 20 })
-  assert.deepEqual(vPage.items, [20, 21, 22])
-  assert.equal(vPage.total, 23)
+  const all = Array.from(Array(23).keys())
+  const page = paginate({ all: all, limit: 10, offset: 20 })
+  assert.deepEqual(page.items, [20, 21, 22])
+  assert.equal(page.total, 23)
 })
 
 await test('mime maps to category + preview allowlist', () => {
@@ -64,23 +64,23 @@ await test('resolveMime handles documents, code, and dotfiles', () => {
 })
 
 await test('sliding window caps hits per trailing window', () => {
-  const vRule = { max: 3, windowMs: 1000 }
+  const rule = { max: 3, windowMs: 1000 }
   // Three hits inside the window are each recorded, none limited.
-  let vHits: number[] = []
-  for (const vNow of [0, 100, 200]) {
-    const vOut = slidingWindow({ hits: vHits, now: vNow, rule: vRule })
-    assert.equal(vOut.limited, false)
-    vHits = vOut.hits
+  let hits: number[] = []
+  for (const now of [0, 100, 200]) {
+    const out = slidingWindow({ hits: hits, now: now, rule: rule })
+    assert.equal(out.limited, false)
+    hits = out.hits
   }
-  assert.equal(vHits.length, 3)
+  assert.equal(hits.length, 3)
   // A 4th hit still inside the window is limited, is NOT recorded, and reports the
   // seconds until the oldest hit (t=0) ages out (expires at 1000ms, 700ms away -> 1s).
-  const vBlocked = slidingWindow({ hits: vHits, now: 300, rule: vRule })
-  assert.equal(vBlocked.limited, true)
-  assert.equal(vBlocked.hits.length, 3)
-  assert.equal(vBlocked.retryAfter, 1)
+  const blocked = slidingWindow({ hits: hits, now: 300, rule: rule })
+  assert.equal(blocked.limited, true)
+  assert.equal(blocked.hits.length, 3)
+  assert.equal(blocked.retryAfter, 1)
   // Once the window slides past the old hits they are pruned and requests flow again.
-  const vAfter = slidingWindow({ hits: vHits, now: 1300, rule: vRule })
-  assert.equal(vAfter.limited, false)
-  assert.equal(vAfter.hits.length, 1)
+  const after = slidingWindow({ hits: hits, now: 1300, rule: rule })
+  assert.equal(after.limited, false)
+  assert.equal(after.hits.length, 1)
 })

@@ -22,24 +22,24 @@ export interface TextEditorData {
 
 // Registered Monaco theme name; matches clemMonokai001Theme.name so Shiki and the
 // plaintext fallback both resolve to the same colours.
-const kThemeName = 'clem-monokai-001'
+const THEME_NAME = 'clem-monokai-001'
 
 // Editor options mirroring the VSCode config this project is developed under.
-const kFontFamily = "'Fira Code', 'Consolas', monospace"
-const kFontSize = 14
-const kLineHeight = 16
-const kTabSize = 2
+const FONT_FAMILY = "'Fira Code', 'Consolas', monospace"
+const FONT_SIZE = 14
+const LINE_HEIGHT = 16
+const TAB_SIZE = 2
 
 // Vertical guide lines drawn at these columns (soft/hard wrap conventions).
-const kRulers = [80, 140]
+const RULERS = [80, 140]
 
 // Styling for the markdown preview page: black background + white text (the app's dark
 // main theme), except blockquotes and code, which keep their own accent styling. Fenced
 // code blocks carry Shiki's inline monokai background, so it wins over the pre rule here.
-const kPreviewCss = 'body{margin:0;padding:16px;background:#151316;color:#fff;font:14px/1.5 sans-serif;}' +
+const PREVIEW_CSS = 'body{margin:0;padding:16px;background:#151316;color:#fff;font:14px/1.5 sans-serif;}' +
   'a{color:#66d9ef;}img{max-width:100%;}table{border-collapse:collapse;}th,td{border:1px solid #45575e;padding:4px 8px;}' +
   'blockquote{margin:0;padding:4px 12px;border-left:4px solid #66d9ef;background:#1a2a30;color:#F8F8F2;}' +
-  `pre,code{font-family:${kFontFamily};}pre{background:#0f1c21;padding:12px;border-radius:4px;overflow:auto;}`
+  `pre,code{font-family:${FONT_FAMILY};}pre{background:#0f1c21;padding:12px;border-radius:4px;overflow:auto;}`
 
 // Full-size text preview/editor. Monaco (the VSCode editor widget) is dynamically
 // imported so its bundle is a lazy chunk loaded only when a text file is opened; Shiki
@@ -113,10 +113,10 @@ export class TextEditorDialog {
     // (toggled on) or the content changes. srcdoc is set imperatively to bypass
     // Angular HTML sanitisation; the iframe sandbox (no allow-scripts) contains it.
     effect(() => {
-      const vFrame = this.frame()
-      const vDoc = this.previewDoc()
-      if (vFrame !== undefined && vDoc !== '') {
-        vFrame.nativeElement.srcdoc = vDoc
+      const frame = this.frame()
+      const doc = this.previewDoc()
+      if (frame !== undefined && doc !== '') {
+        frame.nativeElement.srcdoc = doc
       }
     })
     inject(DestroyRef).onDestroy(() => { this.dispose() })
@@ -126,36 +126,36 @@ export class TextEditorDialog {
   // surfaces in the header instead of throwing.
   private async init (): Promise<void> {
     try {
-      const vMonaco: typeof MonacoNs = await import('monaco-editor/esm/vs/editor/editor.api')
+      const monaco: typeof MonacoNs = await import('monaco-editor/esm/vs/editor/editor.api')
       ensureMonacoWorker()
-      const vText = await this.media.readRaw(this.data.src)
-      await applyHighlighting({ monaco: vMonaco, lang: this.data.lang })
-      this.editor = vMonaco.editor.create(this.host().nativeElement, {
-        value: vText,
+      const text = await this.media.readRaw(this.data.src)
+      await applyHighlighting({ monaco: monaco, lang: this.data.lang })
+      this.editor = monaco.editor.create(this.host().nativeElement, {
+        value: text,
         language: this.data.lang,
-        theme: kThemeName,
+        theme: THEME_NAME,
         readOnly: !this.data.editable,
-        fontFamily: kFontFamily,
+        fontFamily: FONT_FAMILY,
         fontLigatures: false,
-        fontSize: kFontSize,
-        lineHeight: kLineHeight,
-        tabSize: kTabSize,
+        fontSize: FONT_SIZE,
+        lineHeight: LINE_HEIGHT,
+        tabSize: TAB_SIZE,
         insertSpaces: true,
         minimap: { enabled: false },
         automaticLayout: true,
         scrollBeyondLastLine: false,
         lineNumbers: 'on',
-        rulers: kRulers,
+        rulers: RULERS,
       })
       this.editor.onDidChangeModelContent(() => { this.updatePreview() })
       if (this.data.editable) {
         // Ctrl/Cmd+S saves (mirrors the header button) and swallows the browser's
         // save-page dialog while the editor has focus.
-        this.editor.addCommand(vMonaco.KeyMod.CtrlCmd | vMonaco.KeyCode.KeyS, () => { this.save().catch(() => undefined) })
+        this.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => { this.save().catch(() => undefined) })
       }
       this.updatePreview()
-    } catch (vErr: unknown) {
-      this.error.set(errorMessage(vErr))
+    } catch (err: unknown) {
+      this.error.set(errorMessage(err))
     } finally {
       this.loading.set(false)
     }
@@ -177,23 +177,23 @@ export class TextEditorDialog {
   // Build the iframe document: markdown is parsed to HTML (marked, lazy-imported) and
   // wrapped in a themed page; html files are shown verbatim.
   private async renderPreview (inText: string): Promise<void> {
-    let vBody = inText
+    let body = inText
     if (this.data.lang === 'markdown') {
-      vBody = await renderMarkdown(inText)
+      body = await renderMarkdown(inText)
     }
-    this.previewDoc.set(buildPreviewDoc({ lang: this.data.lang, body: vBody }))
+    this.previewDoc.set(buildPreviewDoc({ lang: this.data.lang, body: body }))
   }
 
   // Write the current buffer back through the owner PUT route.
   async save (): Promise<void> {
-    const vEditor = this.editor
-    if (vEditor !== null && !this.saving()) {
+    const editor = this.editor
+    if (editor !== null && !this.saving()) {
       this.saving.set(true)
       this.error.set('')
       try {
-        await this.media.saveText({ id: this.data.mediaId, content: vEditor.getValue() })
-      } catch (vErr: unknown) {
-        this.error.set(errorMessage(vErr))
+        await this.media.saveText({ id: this.data.mediaId, content: editor.getValue() })
+      } catch (err: unknown) {
+        this.error.set(errorMessage(err))
       } finally {
         this.saving.set(false)
       }
@@ -212,9 +212,9 @@ export class TextEditorDialog {
 // Register the base Monaco worker once. Shiki does tokenisation, so only the editor
 // worker (not the per-language services) is ever requested.
 function ensureMonacoWorker (): void {
-  const vGlobal = self as unknown as { MonacoEnvironment?: unknown }
-  if (vGlobal.MonacoEnvironment === undefined) {
-    vGlobal.MonacoEnvironment = {
+  const global = self as unknown as { MonacoEnvironment?: unknown }
+  if (global.MonacoEnvironment === undefined) {
+    global.MonacoEnvironment = {
       getWorker: () => new Worker(new URL('./monaco-editor.worker', import.meta.url), { type: 'module' }),
     }
   }
@@ -226,7 +226,7 @@ function ensureMonacoWorker (): void {
 let gHighlighter: Highlighter | null = null
 let gHighlighterInit: Promise<Highlighter> | null = null
 
-// True once a theme named kThemeName exists in Monaco (via Shiki or the plaintext
+// True once a theme named THEME_NAME exists in Monaco (via Shiki or the plaintext
 // fallback). Stops the plaintext branch clobbering the rich Shiki theme.
 let gThemeReady = false
 
@@ -247,10 +247,10 @@ async function createSharedHighlighter (): Promise<Highlighter> {
 // (real TextMate scopes); plaintext has no grammar, so just define a theme carrying the
 // editor bg/fg. Never disposes anything.
 async function applyHighlighting (inArgs: { monaco: typeof MonacoNs; lang: string }): Promise<void> {
-  const { monaco: vMonaco, lang: vLang } = inArgs
-  if (vLang === 'plaintext') {
+  const { monaco: monaco, lang: lang } = inArgs
+  if (lang === 'plaintext') {
     if (!gThemeReady) {
-      vMonaco.editor.defineTheme(kThemeName, {
+      monaco.editor.defineTheme(THEME_NAME, {
         base: 'vs-dark',
         inherit: true,
         rules: [],
@@ -259,13 +259,13 @@ async function applyHighlighting (inArgs: { monaco: typeof MonacoNs; lang: strin
       gThemeReady = true
     }
   } else {
-    const vHighlighter = await getHighlighter()
-    if (!vHighlighter.getLoadedLanguages().includes(vLang)) {
-      await vHighlighter.loadLanguage(vLang as BundledLanguage)
+    const highlighter = await getHighlighter()
+    if (!highlighter.getLoadedLanguages().includes(lang)) {
+      await highlighter.loadLanguage(lang as BundledLanguage)
     }
     const { shikiToMonaco } = await import('@shikijs/monaco')
-    vMonaco.languages.register({ id: vLang })
-    shikiToMonaco(vHighlighter, vMonaco)
+    monaco.languages.register({ id: lang })
+    shikiToMonaco(highlighter, monaco)
     gThemeReady = true
   }
 }
@@ -276,37 +276,37 @@ async function applyHighlighting (inArgs: { monaco: typeof MonacoNs; lang: strin
 // unknown/absent language falls back to marked's default plain <pre><code>.
 async function renderMarkdown (inText: string): Promise<string> {
   const { Marked } = await import('marked')
-  const vHighlighter = await getHighlighter()
-  const vLoaded = vHighlighter.getLoadedLanguages()
-  for (const vMatch of inText.matchAll(/^[ \t]*```([\w-]+)/gm)) {
-    const vLang = vMatch[1]
-    if (vLang !== undefined && !vLoaded.includes(vLang)) {
-      await vHighlighter.loadLanguage(vLang as BundledLanguage).catch(() => undefined)
+  const highlighter = await getHighlighter()
+  const loaded = highlighter.getLoadedLanguages()
+  for (const match of inText.matchAll(/^[ \t]*```([\w-]+)/gm)) {
+    const lang = match[1]
+    if (lang !== undefined && !loaded.includes(lang)) {
+      await highlighter.loadLanguage(lang as BundledLanguage).catch(() => undefined)
     }
   }
-  const vMarked = new Marked()
-  vMarked.use({
+  const marked = new Marked()
+  marked.use({
     renderer: {
       code ({ text, lang }) {
-        let vOut: string | false = false
-        if (typeof lang === 'string' && lang !== '' && vHighlighter.getLoadedLanguages().includes(lang)) {
-          vOut = vHighlighter.codeToHtml(text, { lang, theme: kThemeName })
+        let out: string | false = false
+        if (typeof lang === 'string' && lang !== '' && highlighter.getLoadedLanguages().includes(lang)) {
+          out = highlighter.codeToHtml(text, { lang, theme: THEME_NAME })
         }
-        return vOut
+        return out
       },
     },
   })
-  return vMarked.parse(inText)
+  return marked.parse(inText)
 }
 
 // Wrap preview body for the iframe: html files render verbatim; markdown-rendered HTML
 // is wrapped in a themed document so it reads like the editor.
 function buildPreviewDoc (inArgs: { lang: string; body: string }): string {
-  let vResult = inArgs.body
+  let result = inArgs.body
   if (inArgs.lang === 'markdown') {
-    vResult = `<!doctype html><meta charset="utf-8"><style>${kPreviewCss}</style>${inArgs.body}`
+    result = `<!doctype html><meta charset="utf-8"><style>${PREVIEW_CSS}</style>${inArgs.body}`
   }
-  return vResult
+  return result
 }
 
 // Human-readable message from an unknown thrown value.

@@ -28,21 +28,21 @@ export class MediaService {
 
   // The main view: the caller's own uploads, newest first, paginated (§8).
   listOwn (inQuery: MediaPageQuery): Promise<Paginated<Media>> {
-    const vParams = { limit: String(inQuery.limit), offset: String(inQuery.offset) }
-    return firstValueFrom(this.http.get<Paginated<Media>>('/api/media', { params: vParams }))
+    const params = { limit: String(inQuery.limit), offset: String(inQuery.offset) }
+    return firstValueFrom(this.http.get<Paginated<Media>>('/api/media', { params: params }))
   }
 
   // Stream one file as the raw request body; metadata rides the query (§6).
   upload (inUpload: MediaUpload): Promise<Media> {
-    const vFile = inUpload.file
-    const vParams: Record<string, string> = {
-      filename: vFile.name,
-      type: vFile.type === '' ? 'application/octet-stream' : vFile.type,
+    const file = inUpload.file
+    const params: Record<string, string> = {
+      filename: file.name,
+      type: file.type === '' ? 'application/octet-stream' : file.type,
     }
-    if (inUpload.dims.width !== undefined) { vParams['width'] = String(inUpload.dims.width) }
-    if (inUpload.dims.height !== undefined) { vParams['height'] = String(inUpload.dims.height) }
-    if (inUpload.folderId !== undefined) { vParams['folderId'] = inUpload.folderId }
-    return firstValueFrom(this.http.post<Media>('/api/media', vFile, { params: vParams }))
+    if (inUpload.dims.width !== undefined) { params['width'] = String(inUpload.dims.width) }
+    if (inUpload.dims.height !== undefined) { params['height'] = String(inUpload.dims.height) }
+    if (inUpload.folderId !== undefined) { params['folderId'] = inUpload.folderId }
+    return firstValueFrom(this.http.post<Media>('/api/media', file, { params: params }))
   }
 
   remove (inId: string): Promise<unknown> {

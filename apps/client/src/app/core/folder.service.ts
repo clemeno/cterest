@@ -69,8 +69,8 @@ export class FolderService {
   }
 
   listBySlug (inQuery: SlugPageQuery): Promise<Paginated<Media>> {
-    const vParams = { limit: String(inQuery.limit), offset: String(inQuery.offset) }
-    return firstValueFrom(this.http.get<Paginated<Media>>(`/api/f/${inQuery.slug}/media`, { params: vParams }))
+    const params = { limit: String(inQuery.limit), offset: String(inQuery.offset) }
+    return firstValueFrom(this.http.get<Paginated<Media>>(`/api/f/${inQuery.slug}/media`, { params: params }))
   }
 
   publicRawUrl (inRaw: PublicRawUrlArgs): string {

@@ -12,7 +12,7 @@ import { MatSnackBar } from '@angular/material/snack-bar'
 import { FolderService } from '../../core/folder.service'
 import type { Folder, Visibility } from '../../models'
 
-const kVisibilityOptions: Visibility[] = ['private', 'protected', 'public']
+const VISIBILITY_OPTIONS: Visibility[] = ['private', 'protected', 'public']
 
 // One-object argument for the visibility change (max-params: single param).
 interface VisibilityChange {
@@ -42,7 +42,7 @@ export class Folders implements OnInit {
   private readonly folders = inject(FolderService)
   private readonly snack = inject(MatSnackBar)
 
-  readonly visibilityOptions = kVisibilityOptions
+  readonly visibilityOptions = VISIBILITY_OPTIONS
   readonly editingId = signal<string | null>(null)
 
   // Signal Form (common create area): new folder name + visibility, name required.
@@ -75,10 +75,10 @@ export class Folders implements OnInit {
   }
 
   async create (): Promise<void> {
-    const vDraft = this.createModel()
-    const vName = vDraft.name.trim()
-    if (vName !== '') {
-      await this.folders.create({ name: vName, visibility: vDraft.visibility })
+    const draft = this.createModel()
+    const name = draft.name.trim()
+    if (name !== '') {
+      await this.folders.create({ name: name, visibility: draft.visibility })
       this.createModel.set({ name: '', visibility: 'private' })
       await this.load()
     }
@@ -90,9 +90,9 @@ export class Folders implements OnInit {
   }
 
   async saveName (inFolder: Folder): Promise<void> {
-    const vName = this.renameForm.name().value().trim()
-    if (vName !== '' && vName !== inFolder.name) {
-      await this.folders.update({ id: inFolder.id, patch: { name: vName } })
+    const name = this.renameForm.name().value().trim()
+    if (name !== '' && name !== inFolder.name) {
+      await this.folders.update({ id: inFolder.id, patch: { name: name } })
     }
     this.editingId.set(null)
     await this.load()
@@ -110,8 +110,8 @@ export class Folders implements OnInit {
 
   // Copy the shareable slug link (private folders are not shareable).
   async copyLink (inFolder: Folder): Promise<void> {
-    const vUrl = `${location.origin}/f/${inFolder.slug}`
-    await navigator.clipboard.writeText(vUrl)
+    const url = `${location.origin}/f/${inFolder.slug}`
+    await navigator.clipboard.writeText(url)
     this.snack.open('Share link copied', 'OK', { duration: 2500 })
   }
 }

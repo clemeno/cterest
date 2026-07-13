@@ -9,7 +9,7 @@ import { MatSnackBar } from '@angular/material/snack-bar'
 import { MediaService } from '../../core/media.service'
 import { FolderService } from '../../core/folder.service'
 import type { Folder, Media } from '../../models'
-import { kDefaultPageSize } from '../../models'
+import { DEFAULT_PAGE_SIZE } from '../../models'
 import { MediaTable } from '../../shared/media-table'
 import type { RawUrlBuilderArgs } from '../../shared/media-table'
 
@@ -36,13 +36,13 @@ export class FolderDetail implements OnInit {
   // media referenced in this folder
   readonly inItems = signal<Media[]>([])
   readonly inTotal = signal(0)
-  readonly inSize = signal(kDefaultPageSize)
+  readonly inSize = signal(DEFAULT_PAGE_SIZE)
   readonly inIndex = signal(0)
 
   // the caller's own uploads (candidates to reference)
   readonly ownItems = signal<Media[]>([])
   readonly ownTotal = signal(0)
-  readonly ownSize = signal(kDefaultPageSize)
+  readonly ownSize = signal(DEFAULT_PAGE_SIZE)
   readonly ownIndex = signal(0)
 
   // Raw-URL builders: in-folder reads go via slug, own uploads via media id.
@@ -53,23 +53,23 @@ export class FolderDetail implements OnInit {
     this.media.rawUrl({ id: inArgs.media.id, download: inArgs.download })
 
   async ngOnInit (): Promise<void> {
-    const vFolder = (await this.folders.listOwn()).find(f => f.id === this.id) ?? null
-    this.folder.set(vFolder)
-    if (vFolder !== null) {
+    const folder = (await this.folders.listOwn()).find(f => f.id === this.id) ?? null
+    this.folder.set(folder)
+    if (folder !== null) {
       await Promise.all([this.loadInFolder(), this.loadOwn()])
     }
   }
 
   async loadInFolder (): Promise<void> {
-    const vPage = await this.folders.listBySlug({ slug: this.folder()!.slug, limit: this.inSize(), offset: this.inIndex() * this.inSize() })
-    this.inItems.set(vPage.items)
-    this.inTotal.set(vPage.total)
+    const page = await this.folders.listBySlug({ slug: this.folder()!.slug, limit: this.inSize(), offset: this.inIndex() * this.inSize() })
+    this.inItems.set(page.items)
+    this.inTotal.set(page.total)
   }
 
   async loadOwn (): Promise<void> {
-    const vPage = await this.media.listOwn({ limit: this.ownSize(), offset: this.ownIndex() * this.ownSize() })
-    this.ownItems.set(vPage.items)
-    this.ownTotal.set(vPage.total)
+    const page = await this.media.listOwn({ limit: this.ownSize(), offset: this.ownIndex() * this.ownSize() })
+    this.ownItems.set(page.items)
+    this.ownTotal.set(page.total)
   }
 
   async onInPage (inEvent: PageEvent): Promise<void> {
