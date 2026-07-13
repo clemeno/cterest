@@ -28,15 +28,10 @@ export class AuthService {
     return vUser
   }
 
-  // Mock-only: seed emails offered as one-click sign-in buttons.
-  demoUsers (): Promise<User[]> {
-    return firstValueFrom(this.http.get<User[]>('/api/auth/demo-users'))
-  }
-
-  // Sign in as a whitelisted email; throws on rejection (generic failure).
-  async signIn (inEmail: string): Promise<User> {
+  // Sign in with a whitelisted email + password; throws on rejection (generic failure).
+  async signIn (inArgs: { email: string; password: string }): Promise<User> {
     const vRes = await firstValueFrom(
-      this.http.post<{ user: User }>('/api/auth/mock-sign-in', { email: inEmail })
+      this.http.post<{ user: User }>('/api/auth/mock-sign-in', inArgs)
     )
     this.user.set(vRes.user)
     return vRes.user

@@ -32,8 +32,9 @@ bun run web          # Angular dev server → http://localhost:4200
 ```
 
 Open http://localhost:4200. `ng serve` proxies `/api` to the mock (`proxy.conf.json`),
-so it is one origin and the session cookie works. Sign in with a seeded demo
-account (e.g. `demo@cterest.dev`) offered on the sign-in page.
+so it is one origin and the session cookie works. Sign in as `clemeno@gmail.com`;
+the password comes from `MOCK_PASSWORD`, or a random one is generated and printed to
+the mock-api console at startup.
 
 ## Build + test
 

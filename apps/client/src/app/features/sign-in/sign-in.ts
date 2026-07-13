@@ -6,12 +6,10 @@ import { MatCardModule } from '@angular/material/card'
 import { MatButtonModule } from '@angular/material/button'
 import { MatFormFieldModule } from '@angular/material/form-field'
 import { MatInputModule } from '@angular/material/input'
-import { MatIconModule } from '@angular/material/icon'
 import { AuthService } from '../../core/auth.service'
-import type { User } from '../../models'
 
-// Sign-in page. In the mock this offers one-click whitelisted demo accounts (and a
-// manual email field); the real app swaps in the Google Identity Services button.
+// Sign-in page. In the mock this is a whitelisted email + a shared mock password;
+// the real app swaps in the Google Identity Services button.
 @Component({
   selector: 'app-sign-in',
   imports: [
@@ -20,7 +18,6 @@ import type { User } from '../../models'
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
-    MatIconModule,
   ],
   templateUrl: './sign-in.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -30,44 +27,34 @@ export class SignIn implements OnInit {
   private readonly auth = inject(AuthService)
   private readonly router = inject(Router)
 
-  readonly demoUsers = signal<User[]>([])
   readonly error = signal<string | null>(null)
 
-  // Signal Form: a single isolated email field, required + standard email format.
-  private readonly model = signal({ email: '' })
+  // Signal Form: the whitelisted email (prefilled for the POC) + the mock password.
+  private readonly model = signal({ email: 'clemeno@gmail.com', password: '' })
   readonly signInForm = form(this.model, inPath => {
     required(inPath.email, { message: 'Email is required' })
     email(inPath.email)
+    required(inPath.password, { message: 'Password is required' })
   })
 
   async ngOnInit (): Promise<void> {
-    // Already signed in? Skip straight to the app; else load the demo accounts.
-    let vNext: User[] = []
+    // Already signed in? Skip straight to the app.
     if (this.auth.user() !== null) {
       await this.router.navigate(['/uploads'])
-    } else {
-      try {
-        vNext = await this.auth.demoUsers()
-      } catch {
-        vNext = []
-      }
-      this.demoUsers.set(vNext)
     }
   }
 
-  // Sign in with an explicit whitelisted email (the demo-account buttons).
-  async signInWith (inEmail: string): Promise<void> {
+  // Submit the email + password (the button is disabled until the form is valid).
+  async submit (): Promise<void> {
     this.error.set(null)
     try {
-      await this.auth.signIn(inEmail)
+      await this.auth.signIn({
+        email: this.signInForm.email().value(),
+        password: this.signInForm.password().value(),
+      })
       await this.router.navigate(['/uploads'])
     } catch {
-      this.error.set('Sign-in failed. This email is not whitelisted.')
+      this.error.set('Sign-in failed. Check your email and password.')
     }
-  }
-
-  // Submit the manual email form (the button is disabled until the field is valid).
-  async submit (): Promise<void> {
-    await this.signInWith(this.signInForm.email().value())
   }
 }

@@ -2,28 +2,23 @@
 	<mat-card>
 		<mat-card-header>
 			<mat-card-title>Sign in to cterest</mat-card-title>
-			<mat-card-subtitle>Whitelisted Google accounts only (mocked here).</mat-card-subtitle>
+			<mat-card-subtitle>Whitelisted account + password (mocked here).</mat-card-subtitle>
 		</mat-card-header>
 
 		<mat-card-content>
-			@if (demoUsers().length) {
-				<p class="hint">Demo accounts:</p>
-				<div class="demo-list">
-					@for (u of demoUsers(); track u.email) {
-						<button mat-stroked-button (click)="signInWith(u.email)">
-							<mat-icon>person</mat-icon>
-							{{ u.name }} — {{ u.email }}
-						</button>
-					}
-				</div>
-			}
-
 			<form class="manual" (submit)="$event.preventDefault(); submit()">
 				<mat-form-field appearance="outline" class="full">
 					<mat-label>Email</mat-label>
 					<input matInput type="email" [formField]="signInForm.email" placeholder="you@example.com" />
 					@if (signInForm.email().touched() && signInForm.email().invalid()) {
 						<mat-error>Enter a valid email address.</mat-error>
+					}
+				</mat-form-field>
+				<mat-form-field appearance="outline" class="full">
+					<mat-label>Password</mat-label>
+					<input matInput type="password" [formField]="signInForm.password" autocomplete="current-password" />
+					@if (signInForm.password().touched() && signInForm.password().invalid()) {
+						<mat-error>Password is required.</mat-error>
 					}
 				</mat-form-field>
 				<button mat-flat-button color="primary" type="submit" [disabled]="signInForm().invalid()">Sign in</button>

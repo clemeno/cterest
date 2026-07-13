@@ -1,8 +1,8 @@
 // Elysia in-memory mock of the cterest /api/* contract (PLAN §7). Lets the web
 // client be exercised end-to-end with no real DB, Google auth, or file storage.
-// ponytail: auth here is a simple whitelist pick, NOT the real Better Auth flow —
-// the web AuthService hides that behind one interface, so swapping in the real
-// API later needs no component change.
+// ponytail: auth here is an email + single mock password, NOT the real Better Auth
+// Google flow — the web AuthService hides that behind one interface, so swapping in
+// the real API later needs no component change.
 
 import { cors } from '@elysiajs/cors'
 import { TO_NUMBER, UUID_V4, UUID_V7 } from 'cme-utils'
@@ -28,6 +28,13 @@ const kPort = (Number.isSafeInteger(vEnvPort) && 0 < vEnvPort && vEnvPort <= 65_
 const kMaxDimension = 100_000
 const kSessionMaxAge = 86_400
 const kVisibilities: Visibility[] = ['private', 'protected', 'public']
+
+// Mock credential shared by every seeded account. Supplied via MOCK_PASSWORD (e.g.
+// `MOCK_PASSWORD=secret bun start`), else a random one is generated and printed at
+// startup for local dev. ponytail: plaintext compare — fine for an in-memory
+// localhost mock; the real API stores hashed creds and does a timing-safe check.
+const kPasswordFromEnv = process.env.MOCK_PASSWORD
+const kPassword = kPasswordFromEnv ?? UUID_V4()
 
 // Text extensions we ship an on-disk sample for (see ../fixtures/<ext>.sample). Doubles
 // as a path-traversal allowlist: only these join the fixtures dir, so the path built in
@@ -123,14 +130,14 @@ const app = new Elysia()
     const vEmail = currentEmail(cookie)
     return { user: vEmail !== null ? publicUser(vEmail) : null }
   })
-  .get('/api/auth/demo-users', () => db.users) // mock-only: seed emails for the sign-in page
   .post('/api/auth/mock-sign-in', ({ body, cookie, set }) => {
     const vEmail = (body as { email?: string })?.email
+    const vPassword = (body as { password?: string })?.password
     const vUser = vEmail !== undefined ? db.users.find(u => u.email === vEmail) : undefined
     let vResult: unknown
-    if (vUser === undefined) {
+    if (vUser === undefined || vPassword !== kPassword) {
       set.status = 403
-      vResult = { error: 'sign-in failed' } // generic, no oracle
+      vResult = { error: 'sign-in failed' } // generic: no email-vs-password oracle
     } else {
       // Session token uses random v4 (unpredictable) — not a sortable entity id, so not UUID_V7.
       const vSid = UUID_V4()
@@ -403,5 +410,11 @@ const app = new Elysia()
   .listen(kPort)
 
 console.log(`mock-api on http://localhost:${kPort}  (${db.media.length} media, ${db.folders.length} folders seeded)`)
+const vOwnerEmail = db.users[0]?.email ?? '(none)'
+if (kPasswordFromEnv === undefined) {
+  console.log(`auth: sign in as ${vOwnerEmail} — generated password: ${kPassword}`)
+} else {
+  console.log(`auth: sign in as ${vOwnerEmail} — password from MOCK_PASSWORD`)
+}
 
 export { app, db }

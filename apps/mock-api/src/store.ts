@@ -210,11 +210,10 @@ export function svgPlaceholder (inMedia: Media): string {
 </svg>`
 }
 
-// Build the seed database: one demo owner with enough media to page, plus a
-// second member (to exercise the protected gate), and one folder per visibility.
+// Build the seed database: the single real owner (clemeno@gmail.com) with enough
+// media to page, and one folder per visibility.
 export function seed (): Store {
-  const vOwner = 'demo@cterest.dev'
-  const vMember = 'member@cterest.dev'
+  const vOwner = 'clemeno@gmail.com'
   const vNow = Date.now()
   const iso = (inMsAgo: number): string => new Date(vNow - inMsAgo).toISOString()
 
@@ -278,8 +277,7 @@ export function seed (): Store {
 
   return {
     users: [
-      { email: vOwner, name: 'Demo Owner' },
-      { email: vMember, name: 'Member Viewer' },
+      { email: vOwner, name: 'CLEm' },
     ],
     sessions: new Map(),
     media: vMedia,
