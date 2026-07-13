@@ -1,6 +1,6 @@
 import type { ElementRef } from '@angular/core'
 import { ChangeDetectionStrategy, Component, DestroyRef, afterNextRender, effect, inject, signal, viewChild } from '@angular/core'
-import { MAT_DIALOG_DATA } from '@angular/material/dialog'
+import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog'
 import { MatButtonModule } from '@angular/material/button'
 import { MatIconModule } from '@angular/material/icon'
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner'
@@ -47,7 +47,7 @@ const kPreviewCss = 'body{margin:0;padding:16px;background:#151316;color:#fff;fo
 // language web-workers are needed (only the base editor worker).
 @Component({
   selector: 'app-text-editor-dialog',
-  imports: [MatButtonModule, MatIconModule, MatProgressSpinnerModule, DragDropModule, DialogTitlebar],
+  imports: [MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatDialogModule, DragDropModule, DialogTitlebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div cdkDrag cdkDragRootElement=".cdk-overlay-pane" cdkDragBoundary=".cdk-overlay-container">
@@ -68,7 +68,7 @@ const kPreviewCss = 'body{margin:0;padding:16px;background:#151316;color:#fff;fo
           <span class="err">{{ error() }}</span>
         }
       </app-dialog-titlebar>
-      <div class="wrap">
+      <mat-dialog-content class="wrap">
         <div #host class="editor"></div>
         @if (showPreview()) {
           <iframe #frame class="preview" sandbox="allow-same-origin" title="Preview"></iframe>
@@ -76,12 +76,12 @@ const kPreviewCss = 'body{margin:0;padding:16px;background:#151316;color:#fff;fo
         @if (loading()) {
           <div class="loading"><mat-progress-spinner mode="indeterminate" [diameter]="36" /></div>
         }
-      </div>
+      </mat-dialog-content>
     </div>
   `,
   styles: `
     .err { color: #ff6b6b; font-size: 12px; }
-    .wrap { position: relative; display: flex; gap: 8px; width: 90vw; }
+    .wrap { position: relative; display: flex; gap: 8px; width: 90vw; padding: 0; max-height: none; }
     .editor { flex: 2 1 0; min-width: 0; height: 70vh; }
     .preview { flex: 1 1 0; min-width: 0; height: 70vh; border: 0; border-radius: 4px; background: #151316; }
     .loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }

@@ -62,16 +62,19 @@ export interface MediaPreviewData {
   template: `
     <div cdkDrag cdkDragRootElement=".cdk-overlay-pane" cdkDragBoundary=".cdk-overlay-container">
       <app-dialog-titlebar [title]="data.alt" />
-      @if (data.kind === 'image') {
-        <img class="preview" [src]="data.src" [alt]="data.alt" />
-      } @else if (data.kind === 'audio') {
-        <audio class="preview" [src]="data.src" [attr.aria-label]="data.alt" controls autoplay></audio>
-      } @else {
-        <video class="preview" [src]="data.src" [attr.aria-label]="data.alt" controls autoplay></video>
-      }
+      <mat-dialog-content class="body">
+        @if (data.kind === 'image') {
+          <img class="preview" [src]="data.src" [alt]="data.alt" />
+        } @else if (data.kind === 'audio') {
+          <audio class="preview" [src]="data.src" [attr.aria-label]="data.alt" controls autoplay></audio>
+        } @else {
+          <video class="preview" [src]="data.src" [attr.aria-label]="data.alt" controls autoplay></video>
+        }
+      </mat-dialog-content>
     </div>
   `,
   styles: `
+    .body { padding: 0; max-height: 85vh; }
     .preview { display: block; max-width: 80vw; max-height: 80vh; }
     audio.preview { width: min(80vw, 360px); }
     video.preview { width: min(80vw, 640px); }
