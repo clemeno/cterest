@@ -170,6 +170,31 @@ export function paginate<T> (inArgs: PageArgs<T>) {
   }
 }
 
+// A rate-limit rule: at most `max` hits per trailing `windowMs` window.
+export interface RateRule {
+  max: number
+  windowMs: number
+}
+
+// Sliding-window rate-limit decision, kept pure so it stays unit-testable (the caller
+// owns storage — a Map in the mock, Redis in a real API). Given a key's prior hit
+// timestamps (ms), the current time, and the rule: prunes hits older than the window,
+// then either records this hit (under the limit) or reports `limited` with `retryAfter`
+// seconds until the oldest still-counted hit ages out. Never mutates the input array.
+export function slidingWindow (inArgs: { hits: number[]; now: number; rule: RateRule }): { hits: number[]; limited: boolean; retryAfter: number } {
+  const vRule = inArgs.rule
+  const vCutoff = inArgs.now - vRule.windowMs
+  const vRecent = inArgs.hits.filter(inT => inT > vCutoff)
+  let vResult: { hits: number[]; limited: boolean; retryAfter: number }
+  if (vRecent.length >= vRule.max) {
+    const vOldest = vRecent[0]! // filter preserves order, so element 0 expires soonest
+    vResult = { hits: vRecent, limited: true, retryAfter: Math.max(1, Math.ceil((vOldest + vRule.windowMs - inArgs.now) / 1000)) }
+  } else {
+    vResult = { hits: [...vRecent, inArgs.now], limited: false, retryAfter: 0 }
+  }
+  return vResult
+}
+
 // Folder access gate (§7). Returns whether the viewer (email, null = anonymous)
 // may read the folder. Unknown folder is treated as private -> denied.
 export function canRead (inArgs: ReadAccess): boolean {

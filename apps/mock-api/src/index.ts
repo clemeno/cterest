@@ -7,7 +7,7 @@
 import { cors } from '@elysiajs/cors'
 import { TO_NUMBER, UUID_V4, UUID_V7 } from 'cme-utils'
 import { Elysia } from 'elysia'
-import type { Media, Store, Visibility } from './store.js'
+import type { Media, RateRule, Store, Visibility } from './store.js'
 import {
   canRead,
   categoryOf,
@@ -17,6 +17,7 @@ import {
   parseOffset,
   resolveMime,
   seed,
+  slidingWindow,
   svgPlaceholder,
   validateLimit,
 } from './store.js'
@@ -36,6 +37,18 @@ const kVisibilities: Visibility[] = ['private', 'protected', 'public']
 const kPasswordFromEnv = process.env.MOCK_PASSWORD
 const kPassword = kPasswordFromEnv ?? UUID_V4()
 
+// Positive-integer env override for a rate-limit knob, else the compiled-in default.
+function rateEnv (inArgs: { name: string; fallback: number }): number {
+  const vN = Number(process.env[inArgs.name])
+  return Number.isInteger(vN) && vN > 0 ? vN : inArgs.fallback
+}
+
+// Sliding-window rate limits (mock-only, in-memory). Defaults blunt password
+// brute-force on sign-in and write floods on other mutations; each knob is overridable
+// via env (the *_WINDOW values are seconds), same pattern as MOCK_PASSWORD / PORT.
+const kSignInRule: RateRule = { max: rateEnv({ name: 'RATE_LIMIT_SIGNIN_MAX', fallback: 5 }), windowMs: rateEnv({ name: 'RATE_LIMIT_SIGNIN_WINDOW', fallback: 60 }) * 1000 }
+const kMutationRule: RateRule = { max: rateEnv({ name: 'RATE_LIMIT_MUTATION_MAX', fallback: 60 }), windowMs: rateEnv({ name: 'RATE_LIMIT_MUTATION_WINDOW', fallback: 60 }) * 1000 }
+
 // Text extensions we ship an on-disk sample for (see ../fixtures/<ext>.sample). Doubles
 // as a path-traversal allowlist: only these join the fixtures dir, so the path built in
 // textFixturePath is fully server-controlled even for attacker-chosen filenames. The
@@ -44,6 +57,18 @@ const kPassword = kPasswordFromEnv ?? UUID_V4()
 const kTextExts = ['txt', 'md', 'html', 'css', 'scss', 'js', 'mjs', 'cjs', 'ts', 'json']
 
 const db: Store = seed()
+
+// Live rate-limit state: key -> recent hit timestamps (ms). Keys are scope:ip:who so a
+// flood from one client/account can't spend another's budget. ponytail: grows unbounded
+// (no eviction) — fine for a localhost mock; a real API keys these in Redis with TTLs.
+const rateHits = new Map<string, number[]>()
+
+// Record a hit against `key` under `rule` and report whether it's now over the limit.
+function checkRate (inArgs: { key: string; rule: RateRule }): { limited: boolean; retryAfter: number } {
+  const vOut = slidingWindow({ hits: rateHits.get(inArgs.key) ?? [], now: Date.now(), rule: inArgs.rule })
+  rateHits.set(inArgs.key, vOut.hits)
+  return { limited: vOut.limited, retryAfter: vOut.retryAfter }
+}
 
 // Newest-upload-first order, shared by the owner + folder listings.
 // eslint-disable-next-line max-params -- Array.sort comparator signature is fixed by the API
@@ -121,6 +146,32 @@ const app = new Elysia()
     } else {
       set.status = typeof set.status === 'number' && set.status !== 200 ? set.status : 500
       vResult = { error: 'request failed' }
+    }
+    return vResult
+  })
+
+// Rate-limit writes before they run. Sign-in is capped hardest to blunt password
+// brute-force and is keyed on the submitted email too, so guesses against one account
+// can't exhaust another's budget; other mutations key on the session email. Reads are
+// unlimited. On the localhost mock every client is 127.0.0.1, so per-IP keying acts
+// global until a proxy fronts it with X-Forwarded-For.
+  .onBeforeHandle(({ request, path, body, cookie, set, server }) => {
+    const vMethod = request.method
+    const vIsSignIn = vMethod === 'POST' && path === '/api/auth/mock-sign-in'
+    const vIsMutation = vMethod === 'POST' || vMethod === 'PUT' || vMethod === 'PATCH' || vMethod === 'DELETE'
+    let vResult: { error: string } | undefined
+    if (vIsSignIn || vIsMutation) {
+      const vFwd = request.headers.get('x-forwarded-for')
+      const vIp = vFwd?.split(',')[0]?.trim() ?? server?.requestIP(request)?.address ?? 'local'
+      const vWho = vIsSignIn ? ((body as { email?: string })?.email ?? '-') : (currentEmail(cookie) ?? '-')
+      const vScope = vIsSignIn ? 'signin' : 'mut'
+      const vRule = vIsSignIn ? kSignInRule : kMutationRule
+      const vGate = checkRate({ key: `${vScope}:${vIp}:${vWho}`, rule: vRule })
+      if (vGate.limited) {
+        set.status = 429
+        set.headers['Retry-After'] = String(vGate.retryAfter)
+        vResult = { error: 'rate limited' } // envelope matches onError (§11)
+      }
     }
     return vResult
   })

@@ -1,7 +1,7 @@
 // Runnable check for the non-trivial pure helpers. `bun test` (or node --test).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { canRead, validateLimit, paginate, categoryOf, isPreviewable, resolveMime } from './store.js'
+import { canRead, validateLimit, paginate, categoryOf, isPreviewable, resolveMime, slidingWindow } from './store.js'
 import type { Folder } from './store.js'
 
 const folder = (inVisibility: Folder['visibility']): Folder => ({
@@ -61,4 +61,26 @@ await test('resolveMime handles documents, code, and dotfiles', () => {
   // Dotfiles (no extension) are plain text.
   assert.equal(categoryOf(resolveMime({ filename: '.gitignore', type: '' })), 'text')
   assert.equal(categoryOf(resolveMime({ filename: '.env', type: 'application/octet-stream' })), 'text')
+})
+
+await test('sliding window caps hits per trailing window', () => {
+  const vRule = { max: 3, windowMs: 1000 }
+  // Three hits inside the window are each recorded, none limited.
+  let vHits: number[] = []
+  for (const vNow of [0, 100, 200]) {
+    const vOut = slidingWindow({ hits: vHits, now: vNow, rule: vRule })
+    assert.equal(vOut.limited, false)
+    vHits = vOut.hits
+  }
+  assert.equal(vHits.length, 3)
+  // A 4th hit still inside the window is limited, is NOT recorded, and reports the
+  // seconds until the oldest hit (t=0) ages out (expires at 1000ms, 700ms away -> 1s).
+  const vBlocked = slidingWindow({ hits: vHits, now: 300, rule: vRule })
+  assert.equal(vBlocked.limited, true)
+  assert.equal(vBlocked.hits.length, 3)
+  assert.equal(vBlocked.retryAfter, 1)
+  // Once the window slides past the old hits they are pruned and requests flow again.
+  const vAfter = slidingWindow({ hits: vHits, now: 1300, rule: vRule })
+  assert.equal(vAfter.limited, false)
+  assert.equal(vAfter.hits.length, 1)
 })
